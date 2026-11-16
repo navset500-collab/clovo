@@ -2098,6 +2098,40 @@ input[type="checkbox"] {
   border-color: #b4d99a;
   transform: rotate(12deg);
 }
+.perspective-section {
+  background: #192b22;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin: 30px 0 60px;
+  padding: clamp(24px, 4vw, 48px);
+}
+.perspective-section .perspective-preview {
+  align-items: center;
+  gap: clamp(22px, 3vw, 40px);
+  padding-bottom: 30px;
+}
+.perspective-section h2 {
+  font-size: clamp(28px, 3.2vw, 43px);
+  line-height: 1.25;
+  margin: 0 0 18px;
+}
+.perspective-section p {
+  font-size: clamp(18px, 1.8vw, 23px);
+  line-height: 1.55;
+}
+.perspective-section .surface-proof {
+  font-size: clamp(17px, 1.7vw, 21px);
+  line-height: 1.5;
+}
+.perspective-section .surface-proof svg {
+  flex-shrink: 0;
+}
+@media (max-width: 520px) {
+  .perspective-section .perspective-preview {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 .surface-proof {
   display: flex;
   align-items: center;

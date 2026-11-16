@@ -474,22 +474,33 @@ export default function Studio() {
                 </p>
               </div>
             </section>
-            <section className="home-principle">
-              <div>
-                <span className="principle-line" />
-                <h2>
-                  {t(
-                    "Good feedback gives you direction.",
-                    "Los buenos comentarios te orientan.",
-                  )}
-                </h2>
+            <section className="perspective-section">
+              <div className="perspective-preview">
+                <div className="perspective-lines" aria-hidden="true">
+                  <i /><i /><i />
+                </div>
+                <div>
+                  <h2>
+                    {t(
+                      "See it through someone else’s eyes.",
+                      "Míralo desde otra perspectiva.",
+                    )}
+                  </h2>
+                  <p>
+                    {t(
+                      "Six specialist agents. Three simulated perspectives. One clear next step.",
+                      "Seis agentes especialistas. Tres perspectivas simuladas. Un siguiente paso claro.",
+                    )}
+                  </p>
+                </div>
               </div>
-              <p>
+              <div className="surface-proof">
+                <Check size={23} aria-hidden="true" />
                 {t(
-                  "See what supports a finding, what is still an assumption, and what to ask real people next. You decide what is worth building.",
-                  "Ve qué respalda un hallazgo, qué sigue siendo una suposición y qué preguntar a personas reales. Tú decides qué vale la pena construir.",
+                  "Trace the feedback back to your evidence.",
+                  "Relaciona los comentarios con tu evidencia.",
                 )}
-              </p>
+              </div>
             </section>
           </>
         )}
