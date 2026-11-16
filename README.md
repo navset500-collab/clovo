@@ -1,8 +1,8 @@
 # Clovo
 
-### See how your idea lands.
+### You have an idea. Will people want it?
 
-[Try Clovo](https://clovo-bvh-2026.vercel.app) · Built for Bay Valley Hacks · Solo track · Theme: **Elevate the Ordinary**
+[Try Clovo](https://clovo-studio.vercel.app) · [Source code](https://github.com/navset500-collab/clovo)
 
 I kept running into the same question when building projects: would anyone actually want this? A working prototype answers whether something can be built. It doesn't tell you whether the problem matters, whether someone would switch from their current solution, or what you should change first.
 
@@ -10,18 +10,18 @@ Clovo turns that uncertainty into a process you can inspect.
 
 ## Bring what you have
 
-Start with a written idea. Add an MVP brief, a PDF, screenshots, or a short demo video. Describe who you want to help and what you need to learn. You don't need a finished product or an account.
+Start with a written idea of at least 50 words and a specific audience. Mira asks focused follow-up questions when the core idea is unclear. Add an MVP brief, a PDF, screenshots, or a short demo video. Describe who you want to help and what you need to learn. You don't need a finished product or an account.
 
 ## Watch the team work
 
-| Agent | Job |
-| --- | --- |
-| Mira | Understands the problem and supplied material |
-| Sora | Investigates demand evidence and identifies what is still unknown |
-| Juno | Runs three separate, explicitly simulated user perspectives |
-| Rook | Challenges assumptions and connects concerns to original sources |
-| Leo | Produces prioritized changes with concrete acceptance checks |
-| Vera | Designs a neutral study for real people |
+| Agent | Job                                                               |
+| ----- | ----------------------------------------------------------------- |
+| Mira  | Understands the problem and supplied material                     |
+| Sora  | Investigates demand evidence and identifies what is still unknown |
+| Juno  | Runs three separate, explicitly simulated user perspectives       |
+| Rook  | Challenges assumptions and connects concerns to original sources  |
+| Leo   | Produces prioritized changes with concrete acceptance checks      |
+| Vera  | Designs a neutral study for real people                           |
 
 The live workspace streams actual server events: agent starts, completed handoffs, and the three tester calls as they return. It doesn't invent private reasoning or fake progress. All agents use the same Gemini base model with different roles; they are not six independently trained models.
 
@@ -31,6 +31,10 @@ Each concern can point to the original brief or an uploaded file. Text quotes ar
 
 This checks provenance, not whether every user claim is true. A quote from a project description is not proof of market demand.
 
+## A score you can inspect
+
+The **readiness-to-test score** is a rubric assessment of the brief, not a success probability or a demand forecast. Rook rates four dimensions from 0–4: problem clarity, audience focus, proposed value, and testability. Code weights each equally to produce a total out of 100. A dimension without a matching original-text quote is capped at 1. Each rating has a reason and links to its supporting material. AI judgments can be wrong; inspect and challenge them.
+
 ## Then ask real people
 
 Create a feedback link after reviewing exactly what it will share. Invite people yourself. They can read the idea, open your prototype link, and submit feedback without logging in. Their responses stay separate from the simulated panel.
@@ -39,7 +43,11 @@ Studies and responses use private Vercel Blob storage. Random invitation links a
 
 ## What works today
 
+- A guided two-step intake with a 50-word minimum and clarifying questions
 - Written ideas, PDFs, images, and short video input
+- A separate interactive walkthrough that never fills your saved workspace
+- Topic-specific web research with quote-matched sources
+- A transparent readiness-to-test rubric
 - Six-agent orchestration with a live activity feed
 - Three independently called AI personas
 - Evidence-linked concerns and build priorities
@@ -52,11 +60,29 @@ Studies and responses use private Vercel Blob storage. Random invitation links a
 
 AI personas are simulations, not interviewed customers. They cannot establish demand. You recruit real participants yourself, and anonymous responses are not identity-verified. Stated interest is not future use.
 
-Google Search grounding currently hits the configured account's quota. Clovo explicitly shows that live search is unavailable and demand is unverified, rather than fabricating competitors or citations.
+Public research uses [Tavily](https://docs.tavily.com/documentation/keyless), including its free, rate-limited keyless mode. An optional server-side `TAVILY_API_KEY` can use your own quota. Two topic queries look for the audience problem and competing products. Claims are retained only when supporting quotes match returned excerpts. Product pages describe offerings; they do not prove adoption. If search is unavailable, Clovo explicitly says so.
 
 Videos are reviewed as six sampled frames, without audio. The prototype link is for human testers; agents do not click through the live app. PDFs are sent in full, up to 2 MB. Videos can be up to 60 MB / three minutes; combined prepared input is limited to 3.7 MB.
 
-This is a hackathon prototype. In-memory rate limits are best-effort. Production use would need stronger abuse prevention, research validation, and more complete media processing.
+## Usage and cost protection
+
+The public app defaults to **5 review starts per UTC day, 20 per calendar month across every visitor, and 2 per network per day**. All production deployments share a private, durable usage ledger. Conditional writes with ETags prevent parallel Vercel instances from overspending the allowance. If storage cannot be checked, generation stays off. There are at most two active reviews globally and one per network. Reservations are not refunded on cancellation, clarification, provider failure or invalid model output.
+
+A review can make at most **9 model calls**, each preceded by a provider token count capped at **32,000 input tokens**; output is capped at **6,500 tokens per call**. There are no automatic model retries or paid Google grounding calls. The approved model is `gemini-3.5-flash-lite`; changing it requires a code review of the limits. Two Tavily queries at most run per review, with free access unless you explicitly configure a key. Cancellation and a 150-second deadline abort remaining work. A request already received by a provider may still be charged.
+
+Set `ANALYSIS_ENABLED=false` and redeploy to pause all new reviews. Set `ANALYSIS_ACCESS_CODE` for optional invite-only access. Neither setting bypasses the shared caps. Limits live in `lib/usage-policy.ts`; lowering them applies immediately on deployment. Development and production use separate counters. Do not delete or reset the production ledger to “fix” a quota message.
+
+Study creation, submissions and reads have persistent global and per-network limits, with a 50-submission cap per study. Request bodies are capped while streaming; media types, file signatures, URLs and structured model output are validated. Credentials stay server-side. Study owner keys are random, stored as hashes on the server, and compared in constant time. React escapes displayed user/model text; restrictive browser headers block framing, objects and external connections. Inline scripts remain allowed for Next.js hydration, so this is not a strict nonce-based CSP.
+
+These controls bound this app's model usage, **not the entire provider or hosting bill**. Other apps sharing the key, compromised credentials, platform requests and storage traffic are outside that model allowance. Configure provider quotas and a Vercel project budget with automatic production pausing as additional protection. No claim of perfect security or independent security certification is made.
+
+## Export, languages and replay
+
+Download report saves a Markdown text file locally. It includes the written brief, score, source links, agent findings, recommendations, interview plan and real responses loaded in the current session. It excludes files and secret keys. Review the brief before sharing the export.
+
+The English/Español menu translates the interface and sets the language of the next generated report and study questions. It does not translate existing reports or participant answers. Switching the interface, exporting, and replaying saved events make **zero model calls**.
+
+When the agents finish, the live workspace stays open until you choose **Open your review**. The Agent activity tab offers a clearly labeled, paced replay with pause and single-step controls. It uses recorded starts and results, not invented reasoning or hidden thinking.
 
 ## Run locally
 
@@ -72,7 +98,7 @@ GEMINI_API_KEY=your-key
 BLOB_READ_WRITE_TOKEN=your-private-store-token
 ```
 
-Optional: `GEMINI_MODEL`, default `gemini-3.5-flash-lite`.
+The approved model is `gemini-3.5-flash-lite`. Optional: `ANALYSIS_ACCESS_CODE`, `ANALYSIS_ENABLED=false`, and `TAVILY_API_KEY`. The Blob token is required for usage protection as well as studies.
 
 ```bash
 npm test
@@ -83,7 +109,7 @@ The tests cover input limits, safe URLs, consent, private owner keys, source-ref
 
 ## Stack and credit
 
-Next.js, React, TypeScript, Gemini, Zod, and Vercel Blob. Built with AI coding assistance.
+Next.js, React, TypeScript, Gemini, Tavily, Zod, and Vercel Blob. Built with AI coding assistance.
 
 [Sombra](https://sombra-pied.vercel.app/command) inspired the visible agent handoff layout. Clovo's implementation, logo, and diagrams are original. Zodiak and General Sans are from [Fontshare](https://www.fontshare.com/).
 
