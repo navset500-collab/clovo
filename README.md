@@ -66,7 +66,7 @@ Videos are reviewed as six sampled frames, without audio. The prototype link is 
 
 ## Usage and cost protection
 
-The public app defaults to **5 review starts per UTC day, 20 per calendar month across every visitor, and 2 per network per day**. All production deployments share a private, durable usage ledger. Conditional writes with ETags prevent parallel Vercel instances from overspending the allowance. If storage cannot be checked, generation stays off. There are at most two active reviews globally and one per network. Reservations are not refunded on cancellation, clarification, provider failure or invalid model output.
+The public app defaults to **5 review starts per UTC day, 20 per calendar month across every visitor, and 3 starts per network per day for at most 2 completed reviews**. All production deployments share a private, durable usage ledger. Conditional writes with ETags prevent parallel Vercel instances from overspending the allowance. If storage cannot be checked, generation stays off. There are at most two active reviews globally and one per network. Failed, cancelled and clarification-only runs do not increment the completed-review count. Their starts still count against all cost caps, so a network can retry within its three-start allowance. Invalid or quota-blocked requests start no AI work. Existing ledgers retain their start counts; migration does not reset spending history. A failed run is not a guaranteed free retry when the shared daily or monthly budget is exhausted.
 
 A review can make at most **9 model calls**, each preceded by a provider token count capped at **32,000 input tokens**; output is capped at **6,500 tokens per call**. There are no automatic model retries or paid Google grounding calls. The approved model is `gemini-3.5-flash-lite`; changing it requires a code review of the limits. Two Tavily queries at most run per review, with free access unless you explicitly configure a key. Cancellation and a 150-second deadline abort remaining work. A request already received by a provider may still be charged.
 
@@ -74,7 +74,7 @@ Set `ANALYSIS_ENABLED=false` and redeploy to pause all new reviews. Set `ANALYSI
 
 Study creation, submissions and reads have persistent global and per-network limits, with a 50-submission cap per study. Request bodies are capped while streaming; media types, file signatures, URLs and structured model output are validated. Credentials stay server-side. Study owner keys are random, stored as hashes on the server, and compared in constant time. React escapes displayed user/model text; restrictive browser headers block framing, objects and external connections. Inline scripts remain allowed for Next.js hydration, so this is not a strict nonce-based CSP.
 
-These controls bound this app's model usage, **not the entire provider or hosting bill**. Other apps sharing the key, compromised credentials, platform requests and storage traffic are outside that model allowance. Configure provider quotas and a Vercel project budget with automatic production pausing as additional protection. No claim of perfect security or independent security certification is made.
+These controls bound this app's model usage, **not the entire provider or hosting bill**. Other apps sharing the key, compromised credentials, platform requests and storage traffic are outside that model allowance. Configure provider-side quotas as additional protection. This deployment uses Vercel Hobby; paid Spend Management is not available on that plan. If upgrading, configure the hosting budget and automatic production pausing. No claim of perfect security or independent security certification is made.
 
 ## Export, languages and replay
 
@@ -114,3 +114,11 @@ Next.js, React, TypeScript, Gemini, Tavily, Zod, and Vercel Blob. Built with AI 
 [Sombra](https://sombra-pied.vercel.app/command) inspired the visible agent handoff layout. Clovo's implementation, logo, and diagrams are original. Zodiak and General Sans are from [Fontshare](https://www.fontshare.com/).
 
 Privacy and data handling are explained in the app at `/privacy`. API keys, environment files, uploaded project materials, and private feedback are not included in this repository.
+
+### Clear allowances and first-use guidance
+
+The intake form checks an approximate allowance snapshot before a review starts. It shows the network's available starts, remaining completed reviews, and the next reset in the visitor's local time. Snapshots are cached for 15 seconds per server instance; the atomic reservation is authoritative. Machine-readable error codes are translated at render time, so switching English/Español also translates an already-visible quota error.
+
+The homepage follows describe → review → invite. The report's next-step guide links to research, improvements and real feedback. Creating a feedback link creates an unlisted, no-index page at `/test/<random-id>` on Clovo; it does not send invitations or publish to another service. Anyone with the link can read the shared invitation. Owners copy the link, invite people themselves, and check responses in the same browser. Files and AI reports are excluded from the invitation.
+
+The live workspace's six-segment progress display advances only on completed agent events. Animated connections indicate active downstream work. The latest completed finding remains readable while other agents work, and the original event log remains available. Reduced-motion preferences disable the new animated treatments.

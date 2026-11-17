@@ -1,4 +1,5 @@
 "use client";
+import { errorText } from "@/lib/messages";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Copy, RefreshCw, Trash2 } from "lucide-react";
 import type { Review, Language, StudyAccess, HumanResponse } from "@/lib/types";
@@ -57,7 +58,7 @@ export default function HumanFeedback({
         cache: "no-store",
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error);
+      if (!r.ok) throw new Error(j.code || j.error);
       setResponses(j.responses);
       onResponses(j.responses);
     } catch (e) {
@@ -86,7 +87,7 @@ export default function HumanFeedback({
         }),
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error);
+      if (!r.ok) throw new Error(j.code || j.error);
       remember(j);
       setPublish(false);
     } catch (e) {
@@ -104,7 +105,7 @@ export default function HumanFeedback({
         headers: { Authorization: `Bearer ${access.ownerKey}` },
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error);
+      if (!r.ok) throw new Error(j.code || j.error);
       remember(null);
       setResponses([]);
       onResponses([]);
@@ -124,12 +125,15 @@ export default function HumanFeedback({
       <div className="section-heading">
         <div>
           <h2>
-            {t("Now, ask actual people.", "Ahora, pregunta a personas reales.")}
+            {t(
+              "Turn the plan into real feedback.",
+              "Convierte el plan en comentarios reales.",
+            )}
           </h2>
           <p>
             {t(
-              "AI helps you prepare. People tell you what matters to them.",
-              "La IA te ayuda a prepararte. Las personas te dicen qué les importa.",
+              "Create a questionnaire on Clovo, send the link yourself, and read people’s answers here.",
+              "Crea un formulario en Clovo, comparte tú el enlace y lee aquí las respuestas.",
             )}
           </p>
         </div>
@@ -140,45 +144,13 @@ export default function HumanFeedback({
             onClick={() => refresh()}
           >
             <RefreshCw size={18} />
-            {t("Refresh responses", "Actualizar respuestas")}
+            {t("Check for responses", "Consultar respuestas")}
           </button>
         )}
       </div>
-      <div className="feedback-steps">
-        <article>
-          <span>01</span>
-          <h3>{t("Choose people to invite", "Elige a quién invitar")}</h3>
-          <p>
-            {t(
-              "Start with a few people who face the problem you described. You find and invite them; Clovo does not supply a human testing panel.",
-              "Empieza con algunas personas que tengan el problema descrito. Tú las encuentras e invitas; Clovo no proporciona un panel humano.",
-            )}
-          </p>
-        </article>
-        <article>
-          <span>02</span>
-          <h3>{t("Send your feedback link", "Comparte tu enlace")}</h3>
-          <p>
-            {t(
-              "Preview the description, task and questions below. Create a link and send it yourself. People open your prototype link, if you included one, then answer the form.",
-              "Revisa la descripción, tarea y preguntas. Crea el enlace y compártelo. Si incluyes un prototipo, las personas lo abren y después responden el formulario.",
-            )}
-          </p>
-        </article>
-        <article>
-          <span>03</span>
-          <h3>{t("Read what actually happened", "Lee lo que ocurrió")}</h3>
-          <p>
-            {t(
-              "Refresh responses here to see their answers. Compare their experience with the AI’s predictions. This collects written feedback; it does not record their screen or automatically verify their identity.",
-              "Actualiza aquí las respuestas y compara su experiencia con las predicciones de IA. Se recoge texto; no se graba la pantalla ni se verifica automáticamente la identidad.",
-            )}
-          </p>
-        </article>
-      </div>
       {error && (
         <p role="alert" className="error">
-          {error}
+          {errorText(error, language)}
         </p>
       )}
       {!access ? (
@@ -191,18 +163,18 @@ export default function HumanFeedback({
           <div>
             <h3>
               {t(
-                "Your first real conversation starts here.",
-                "Tu primera conversación real empieza aquí.",
+                "Your own feedback page. On Clovo.",
+                "Tu propia página de comentarios. En Clovo.",
               )}
             </h3>
             <p>
               {t(
-                "Create a feedback link and share it with your audience. They can try your prototype and respond without an account. You invite the testers; Clovo does not recruit a panel.",
-                "Crea un enlace y compártelo con tu público. Pueden probar tu prototipo y responder sin una cuenta. Tú invitas a los participantes; Clovo no recluta un panel.",
+                "The link will look like clovo-studio.vercel.app/test/… Anyone with it can read your shared description and answer Vera’s questions. Your uploaded files and AI report stay out of the page.",
+                "El enlace será como clovo-studio.vercel.app/test/… Quien lo tenga podrá leer tu descripción y responder las preguntas de Vera. Tus archivos y tu informe de IA no se incluyen.",
               )}
             </p>
             <button className="primary" onClick={() => setPublish(true)}>
-              {t("Create feedback link", "Crear enlace de comentarios")}
+              {t("Preview & create your page", "Revisar y crear tu página")}
               <ArrowUpRight size={20} />
             </button>
           </div>
@@ -211,10 +183,16 @@ export default function HumanFeedback({
         <div className="share-card">
           <h3>
             {t(
-              "Invite people who might really use this.",
-              "Invita a personas que realmente podrían usarlo.",
+              "Your page is ready. Now send the link.",
+              "Tu página está lista. Ahora envía el enlace.",
             )}
           </h3>
+          <p>
+            {t(
+              "Clovo has not sent this to anyone. Copy it into a text, email, or group chat for the people you want to invite.",
+              "Clovo no ha enviado esto a nadie. Copia el enlace en un mensaje, correo o chat para las personas que quieras invitar.",
+            )}
+          </p>
           <div className="copy-row">
             <input
               aria-label={t("Feedback link", "Enlace de comentarios")}
@@ -239,7 +217,7 @@ export default function HumanFeedback({
             >
               <Copy size={18} />
               {copied
-                ? t("Copied", "Copiado")
+                ? t("Copied — ready to send", "Copiado — listo para enviar")
                 : t("Copy link", "Copiar enlace")}
             </button>
           </div>
@@ -271,36 +249,91 @@ export default function HumanFeedback({
           </div>
         </div>
       )}
-      <div className="response-metrics">
-        <div>
-          <strong>{responses.length}</strong>
-          <span>{t("submitted responses", "respuestas recibidas")}</span>
-        </div>
-        <div>
-          <strong>{responses.filter((r) => r.use === "yes").length}</strong>
-          <span>{t("said they would try it", "dicen que lo probarían")}</span>
-        </div>
-        <div>
-          <strong>
-            {
-              responses.filter((r) => ["daily", "weekly"].includes(r.frequency))
-                .length
-            }
-          </strong>
-          <span>
+      <div className="feedback-steps">
+        <article>
+          <span>01</span>
+          <h3>{t("Create your page", "Crea tu página")}</h3>
+          <p>
             {t(
-              "face the problem weekly or more",
-              "tienen el problema semanalmente",
+              "Review the description and questions, then create a questionnaire hosted right here on Clovo. This does not publish your whole AI report.",
+              "Revisa la descripción y las preguntas y crea un formulario alojado aquí, en Clovo. No se publica todo tu informe de IA.",
             )}
-          </span>
-        </div>
+          </p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>{t("Send your feedback link", "Comparte tu enlace")}</h3>
+          <p>
+            {t(
+              "Copy the link into a message to people who face this problem. Clovo does not post it to social media, send invitations, or recruit testers.",
+              "Copia el enlace en un mensaje para personas que tengan este problema. Clovo no lo publica en redes sociales, envía invitaciones ni recluta participantes.",
+            )}
+          </p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>{t("Come back for answers", "Vuelve por las respuestas")}</h3>
+          <p>
+            {t(
+              "They open the link and answer without an account. Return to this report in the same browser and choose Check for responses. Nothing appears until someone submits the form.",
+              "Abren el enlace y responden sin cuenta. Vuelve a este informe en el mismo navegador y pulsa Consultar respuestas. No aparecerá nada hasta que alguien envíe el formulario.",
+            )}
+          </p>
+        </article>
       </div>
-      <p className="evidence-note">
-        {t(
-          "These counts come only from submitted forms. Responses are anonymous and self-selected; identities are not verified. Stated interest is not proof of future use.",
-          "Estos datos provienen solo de formularios enviados. Las respuestas son anónimas y voluntarias; las identidades no están verificadas. El interés declarado no demuestra uso futuro.",
-        )}
-      </p>
+      {access && responses.length === 0 && (
+        <div className="response-empty">
+          <h3>
+            {t(
+              "Waiting for your first response.",
+              "Esperando tu primera respuesta.",
+            )}
+          </h3>
+          <p>
+            {t(
+              "Send the link above, let someone complete the form, then choose Check for responses. These are real submissions, separate from Juno’s AI perspectives.",
+              "Envía el enlace, espera a que alguien complete el formulario y pulsa Consultar respuestas. Son envíos reales, separados de las perspectivas de IA de Juno.",
+            )}
+          </p>
+        </div>
+      )}
+      {access && (
+        <>
+          <div className="response-metrics">
+            <div>
+              <strong>{responses.length}</strong>
+              <span>{t("submitted responses", "respuestas recibidas")}</span>
+            </div>
+            <div>
+              <strong>{responses.filter((r) => r.use === "yes").length}</strong>
+              <span>
+                {t("said they would try it", "dicen que lo probarían")}
+              </span>
+            </div>
+            <div>
+              <strong>
+                {
+                  responses.filter((r) =>
+                    ["daily", "weekly"].includes(r.frequency),
+                  ).length
+                }
+              </strong>
+              <span>
+                {t(
+                  "face the problem weekly or more",
+                  "tienen el problema semanalmente",
+                )}
+              </span>
+            </div>
+          </div>
+          <p className="evidence-note">
+            {t(
+              "These counts come only from submitted forms. Responses are anonymous and self-selected; identities are not verified. Stated interest is not proof of future use.",
+              "Estos datos provienen solo de formularios enviados. Las respuestas son anónimas y voluntarias; las identidades no están verificadas. El interés declarado no demuestra uso futuro.",
+            )}
+          </p>
+        </>
+      )}
       {responses.map((r, i) => (
         <article className="response-card" key={r.id}>
           <div className="card-top">
@@ -356,9 +389,18 @@ export default function HumanFeedback({
       </div>
       {publish && (
         <Modal
-          title={t("Preview your public study", "Revisa tu prueba pública")}
+          title={t(
+            "Preview your Clovo feedback page",
+            "Revisa tu página de comentarios",
+          )}
           onClose={() => setPublish(false)}
         >
+          <p className="publishing-destination">
+            {t(
+              "Destination: a shareable page on Clovo. Nothing is sent or posted to another service.",
+              "Destino: una página para compartir en Clovo. No se envía ni publica en otro servicio.",
+            )}
+          </p>
           <h2>{review.input.name}</h2>
           <p>
             {t(
@@ -381,6 +423,10 @@ export default function HumanFeedback({
               {review.input.url}
             </p>
           )}
+          <h3>
+            {t("Task participants will see", "Tarea para los participantes")}
+          </h3>
+          <p>{review.report.experiment.task}</p>
           <h3>
             {t(
               "Questions participants will see",
@@ -411,7 +457,7 @@ export default function HumanFeedback({
           </p>
           {error && (
             <p className="error" role="alert">
-              {error}
+              {errorText(error, language)}
             </p>
           )}
           <button
@@ -421,7 +467,7 @@ export default function HumanFeedback({
           >
             {busy
               ? t("Creating…", "Creando…")
-              : t("Publish feedback link", "Publicar enlace")}
+              : t("Create page & get link", "Crear página y obtener enlace")}
           </button>
         </Modal>
       )}

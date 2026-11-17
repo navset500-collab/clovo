@@ -51,8 +51,108 @@ export default function LiveRun({
   const a = AGENTS.find((a) => a.id === selected)!,
     trace = traces[selected],
     active = AGENTS.filter((a) => statuses[a.id] === "running");
+  const completedCount = AGENTS.filter((a) => statuses[a.id] === "done").length;
+  const latestFinding = [...events]
+    .reverse()
+    .find((e) => e.status === "done" && e.persona === undefined);
+  const stageTitles: Record<AgentId, [string, string]> = {
+    mira: ["First, understand the idea.", "Primero, entender la idea."],
+    sora: [
+      "Find the evidence. Explore the audience.",
+      "Buscar evidencia. Explorar el público.",
+    ],
+    juno: [
+      "Find the evidence. Explore the audience.",
+      "Buscar evidencia. Explorar el público.",
+    ],
+    rook: [
+      "Put the assumptions under pressure.",
+      "Poner a prueba las suposiciones.",
+    ],
+    leo: [
+      "Turn findings into a better next version.",
+      "Convertir hallazgos en una mejor versión.",
+    ],
+    vera: [
+      "Make a plan to ask real people.",
+      "Preparar una prueba con personas reales.",
+    ],
+  };
   return (
     <div className="agent-workspace">
+      <section
+        className={`run-story ${complete ? "finished" : ""}`}
+        aria-label={t("Review progress", "Progreso del análisis")}
+      >
+        <div className="run-story-heading">
+          <div>
+            <span className="detail-label">
+              {replay
+                ? t("Recorded journey", "Recorrido grabado")
+                : t(
+                    "From idea to your next move",
+                    "De la idea al siguiente paso",
+                  )}
+            </span>
+            <h2>
+              {complete
+                ? t(
+                    "Six perspectives. Ready for you.",
+                    "Seis perspectivas. Listas para ti.",
+                  )
+                : active[0]
+                  ? stageTitles[active[0].id][es ? 1 : 0]
+                  : t(
+                      "Connecting your brief to the team.",
+                      "Conectando tu texto con el equipo.",
+                    )}
+            </h2>
+          </div>
+          <span className="run-count">
+            <strong>{completedCount}</strong> / 6{" "}
+            <span>{t("finished", "completados")}</span>
+          </span>
+        </div>
+        <div
+          className="milestone-track"
+          aria-label={t(
+            `${completedCount} of 6 agents complete`,
+            `${completedCount} de 6 agentes completados`,
+          )}
+        >
+          {AGENTS.map((agent) => (
+            <button
+              key={agent.id}
+              style={{ "--agent": agent.color } as CSSProperties}
+              className={statuses[agent.id] || "waiting"}
+              onClick={() => {
+                setSelected(agent.id);
+                setFollow(false);
+              }}
+              aria-pressed={selected === agent.id}
+            >
+              <span className="milestone-bar" />
+              <span>{agent.name}</span>
+              {statuses[agent.id] === "done" && <Check size={15} />}
+            </button>
+          ))}
+        </div>
+        <p className="run-story-note">
+          {complete
+            ? t(
+                replay
+                  ? "Inspect any completed result below, or replay the handoffs at your own pace."
+                  : "Open your review above, or inspect any result below. You can replay this process later without using AI.",
+                replay
+                  ? "Examina un resultado abajo o reproduce las entregas a tu ritmo."
+                  : "Abre tu análisis arriba o examina un resultado abajo. Puedes reproducir este proceso después sin usar IA.",
+              )
+            : t(
+                "Progress advances when an agent actually returns a result. Research and the simulated panel run together.",
+                "El progreso avanza cuando un agente devuelve un resultado. La investigación y el panel simulado trabajan en paralelo.",
+              )}
+        </p>
+      </section>
       <div className="workspace-toolbar">
         <div>
           {complete ? <Check size={18} /> : <Radio size={18} />}
@@ -89,6 +189,25 @@ export default function LiveRun({
         statuses={statuses}
         events={events}
       />
+      {latestFinding && (
+        <div
+          className="latest-handoff"
+          key={`${latestFinding.agent}-${latestFinding.at}`}
+        >
+          <span>
+            {t("Latest handoff", "Última entrega")} ·{" "}
+            {AGENTS.find((a) => a.id === latestFinding.agent)?.name}
+          </span>
+          <p>{latestFinding.message}</p>
+          <button
+            className="text-button"
+            onClick={() => onOpen(latestFinding.agent)}
+          >
+            {t("Read the finding", "Leer el hallazgo")}
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      )}
       <div className="live-workbench">
         <div
           className="live-center"
@@ -126,16 +245,16 @@ export default function LiveRun({
             )}
           </div>
           <p className="live-job">{a.job[es ? 1 : 0]}</p>
-          <div className="live-responsibilities">
-            <span className="detail-label">
-              {t("What this step covers", "Qué incluye este paso")}
-            </span>
+          <details className="live-responsibilities">
+            <summary>
+              {t("What this agent checks", "Qué comprueba este agente")}
+            </summary>
             <ol>
               {AGENT_GUIDES[selected].steps[es ? 1 : 0].map((step) => (
                 <li key={step}>{step}</li>
               ))}
             </ol>
-          </div>
+          </details>
           {selected === "juno" && (
             <div className="live-personas">
               {[0, 1, 2].map((i) => {

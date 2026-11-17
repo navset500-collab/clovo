@@ -1,4 +1,5 @@
 "use client";
+import { errorText } from "@/lib/messages";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Check } from "lucide-react";
 import type { Language, Study } from "@/lib/types";
@@ -21,7 +22,7 @@ export default function Participant({ id }: { id: string }) {
     fetch(`/api/studies/${id}`, { cache: "no-store" })
       .then(async (r) => {
         const j = await r.json();
-        if (!r.ok) throw new Error(j.error);
+        if (!r.ok) throw new Error(j.code || j.error);
         setStudy(j.study);
         setLang(j.study.language);
         setAnswers(j.study.questions.map(() => ""));
@@ -53,7 +54,7 @@ export default function Participant({ id }: { id: string }) {
         }),
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error);
+      if (!r.ok) throw new Error(j.code || j.error);
       setDone(true);
       try {
         localStorage.setItem(`clovo-sent-${id}`, "1");
@@ -229,7 +230,7 @@ export default function Participant({ id }: { id: string }) {
               </label>
               {error && (
                 <p role="alert" className="error">
-                  {error}
+                  {errorText(error, lang)}
                 </p>
               )}
               <button
@@ -245,7 +246,7 @@ export default function Participant({ id }: { id: string }) {
           </>
         ) : error ? (
           <div className="error" role="alert">
-            {error}
+            {errorText(error, lang)}
           </div>
         ) : (
           <p>{t("Loading the study…", "Cargando la prueba…")}</p>

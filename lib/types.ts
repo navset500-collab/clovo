@@ -151,7 +151,7 @@ export type AnalysisEvent =
   | { type: "panel"; index: number; persona: Persona }
   | { type: "result"; report: Report }
   | { type: "clarify"; questions: string[] }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: string };
 export type Study = {
   id: string;
   name: string;

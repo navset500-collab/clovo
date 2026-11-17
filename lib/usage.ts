@@ -3,6 +3,8 @@ import { get, put, BlobPreconditionFailedError } from "@vercel/blob";
 import { z } from "zod";
 import {
   reserveUsage,
+  settleUsage,
+  allowanceSnapshot,
   UsageError,
   USAGE_LIMITS,
   type UsageState,
@@ -16,6 +18,7 @@ const stateSchema = z.object({
   day: z.string(),
   daily: counter,
   networks: z.record(z.string(), counter),
+  completedNetworks: z.record(z.string(), counter).optional(),
   resources: z.record(z.string(), counter),
   active: z.array(
     z.object({ id: z.string(), network: z.string(), expires: counter }),
@@ -47,7 +50,8 @@ async function update(
       });
       if (previous && previous.statusCode !== 200)
         throw new Error("Unexpected usage response");
-      if (previous && !previous.blob.etag) throw new Error("Missing usage version");
+      if (previous && !previous.blob.etag)
+        throw new Error("Missing usage version");
       const state = previous
         ? stateSchema.parse(await new Response(previous.stream).json())
         : null;
@@ -87,6 +91,7 @@ async function update(
     "Another request is updating the allowance. Please try again shortly.",
     429,
     10,
+    "quota_busy",
   );
 }
 export async function reserve(
@@ -114,20 +119,38 @@ export async function reserve(
     process.env.VERCEL_ENV === "production" ? "production" : "development";
   const path = `usage/v1/${scope}/${month}/${bucket}.json`,
     id = randomUUID();
-  await update(path, (s) =>
-    reserveUsage(s, policies[bucket], network, id, now, resource),
-  );
+  try {
+    await update(path, (s) =>
+      reserveUsage(s, policies[bucket], network, id, now, resource),
+    );
+  } catch (e) {
+    if (
+      bucket !== "analysis" &&
+      e instanceof UsageError &&
+      ["network_daily", "global_daily", "global_monthly"].includes(e.code)
+    )
+      e.code = `requests_${e.code}`;
+    throw e;
+  }
   if (bucket === "feedback" && resource) {
     // A seven-day study may span two months. Its lifetime cap must not reset.
-    await update(`usage/v1/${scope}/studies/${resource}.json`, s => reserveUsage(s, { daily: 50, monthly: 50, perNetworkDaily: 10 }, network, id, now));
+    await update(`usage/v1/${scope}/studies/${resource}.json`, (s) =>
+      reserveUsage(
+        s,
+        { daily: 50, monthly: 50, perNetworkDaily: 10 },
+        network,
+        id,
+        now,
+      ),
+    );
   }
-  return async () => {
+  return async (completed = false) => {
     if (!policies[bucket].concurrent) return;
-    // Failed runs still consume a start: refunding would allow repeated costly failures.
+    // Refund no cost reservations, but count completed reports separately.
     try {
       await update(path, (s) => {
         if (!s) throw new Error("Missing usage record");
-        return { ...s, active: s.active.filter((a) => a.id !== id) };
+        return settleUsage(s, id, day, completed);
       });
     } catch {
       /* Expiring lease remains conservative if storage fails. */
@@ -140,7 +163,7 @@ export function usageResponse(error: unknown) {
       ? error
       : new UsageError("Requests are temporarily paused.", 503, 60);
   return Response.json(
-    { error: e.message },
+    { error: e.message, code: e.code, resetAt: e.resetAt },
     {
       status: e.status,
       headers: {
@@ -149,4 +172,50 @@ export function usageResponse(error: unknown) {
       },
     },
   );
+}
+
+let snapshotCache:
+  { path: string; state: UsageState | null; checkedAt: number } | undefined;
+let snapshotPending: Promise<void> | undefined;
+export async function readAllowance(request: Request) {
+  const secret = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!secret) throw new UsageError("Usage unavailable.");
+  const now = Date.now(),
+    day = new Date(now).toISOString().slice(0, 10);
+  const scope =
+    process.env.VERCEL_ENV === "production" ? "production" : "development";
+  const path = `usage/v1/${scope}/${day.slice(0, 7)}/analysis.json`;
+  // A short, server-only cache coalesces status reads. Reservations always read
+  // uncached state and remain authoritative. Never expose the underlying ledger.
+  if (
+    !snapshotCache ||
+    snapshotCache.path !== path ||
+    now - snapshotCache.checkedAt > 15000
+  ) {
+    snapshotPending ||= (async () => {
+      const record = await get(path, {
+        access: "private",
+        useCache: false,
+        abortSignal: AbortSignal.timeout(8000),
+      });
+      if (record && record.statusCode !== 200)
+        throw new Error("Usage unavailable");
+      const state = record
+        ? stateSchema.parse(await new Response(record.stream).json())
+        : null;
+      snapshotCache = { path, state, checkedAt: Date.now() };
+    })().finally(() => {
+      snapshotPending = undefined;
+    });
+    await snapshotPending;
+  }
+  const address =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const network = createHmac("sha256", secret)
+    .update(`${day}:${address}`)
+    .digest("hex");
+  return {
+    ...allowanceSnapshot(snapshotCache!.state, network, now),
+    checkedAt: snapshotCache!.checkedAt,
+  };
 }

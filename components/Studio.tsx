@@ -35,6 +35,7 @@ import ProjectForm from "./ProjectForm";
 import Readiness from "./Readiness";
 import { EvidenceBadges, EvidenceDrawer, EvidenceSummary } from "./Evidence";
 import { prepareFile } from "@/lib/files";
+import { errorText } from "@/lib/messages";
 import { reportMarkdown } from "@/lib/export";
 const blank: ProjectInput = {
   name: "",
@@ -63,6 +64,7 @@ export default function Studio() {
     [draft, setDraft] = useState<ProjectInput>(blank),
     [filesBusy, setFilesBusy] = useState(false),
     [error, setError] = useState(""),
+    [errorReset, setErrorReset] = useState<string | undefined>(),
     [status, setStatus] = useState<Partial<Record<AgentId, AgentStatus>>>({}),
     [traces, setTraces] = useState<Partial<Record<AgentId, AgentTrace>>>({}),
     [panel, setPanel] = useState<Persona[]>([]),
@@ -179,6 +181,7 @@ export default function Studio() {
     e.preventDefault();
     setDraft(input);
     setQuestions([]);
+    setErrorReset(undefined);
     setError("");
     setForm(false);
     setRunReady(false);
@@ -201,7 +204,8 @@ export default function Studio() {
       });
       if (!response.ok) {
         const j = await response.json();
-        throw new Error(j.error);
+        setErrorReset(j.resetAt);
+        throw new Error(j.code || j.error);
       }
       const reader = response.body!.getReader(),
         decoder = new TextDecoder();
@@ -244,7 +248,8 @@ export default function Studio() {
           setPage("home");
           setForm(true);
           finished = true;
-        } else if (event.type === "error") throw new Error(event.message);
+        } else if (event.type === "error")
+          throw new Error(event.code || event.message);
         else if (event.type === "result") {
           const result = {
             input: { ...input, accessCode: undefined, language },
@@ -289,21 +294,10 @@ export default function Studio() {
         lines.forEach(handle);
       }
       if (buffer.trim()) handle(buffer);
-      if (!finished)
-        throw new Error(
-          t(
-            "The analysis ended before a complete report arrived. Please retry.",
-            "El análisis terminó sin un informe completo. Inténtalo de nuevo.",
-          ),
-        );
+      if (!finished) throw new Error("review_failed");
     } catch (e) {
       setError(
-        controller.signal.aborted
-          ? t(
-              "Analysis cancelled. Your inputs are still available.",
-              "Análisis cancelado. Tus datos siguen disponibles.",
-            )
-          : (e as Error).message,
+        controller.signal.aborted ? "review_cancelled" : (e as Error).message,
       );
       setPage("home");
     } finally {
@@ -364,8 +358,8 @@ export default function Studio() {
                 </h1>
                 <p className="hero-description">
                   {t(
-                    "Bring your idea, prototype, or product. Explore what people might need, find the weak spots, and discover what to build next.",
-                    "Trae tu idea, prototipo o producto. Explora lo que las personas podrían necesitar, encuentra puntos débiles y descubre qué construir después.",
+                    "Describe what you’re building. Get research, three simulated user perspectives, and a plan to improve it. Then invite real people to test your idea.",
+                    "Describe lo que construyes. Recibe investigación, tres perspectivas simuladas y un plan de mejoras. Después invita a personas reales a probar tu idea.",
                   )}
                 </p>
                 <div className="hero-actions">
@@ -401,7 +395,27 @@ export default function Studio() {
             </section>
             {error && (
               <div className="error page-error" role="alert">
-                {error}
+                <div>
+                  <strong>
+                    {t(
+                      "Your review hasn’t finished.",
+                      "Tu análisis no se completó.",
+                    )}
+                  </strong>
+                  <p>{errorText(error, language)}</p>
+                  {errorReset && (
+                    <p>
+                      {t("Resets: ", "Se reinicia: ")}
+                      {new Date(errorReset).toLocaleString(es ? "es" : "en", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        timeZoneName: "short",
+                      })}
+                    </p>
+                  )}
+                </div>
                 <button
                   className="text-button"
                   onClick={() => {
@@ -409,11 +423,43 @@ export default function Studio() {
                     setError("");
                   }}
                 >
-                  {t("Edit & retry", "Editar y reintentar")}
+                  {t("Return to your brief", "Volver a tu texto")}
                   <ArrowRight size={18} />
                 </button>
               </div>
             )}
+            <section className="three-steps">
+              <div>
+                <span>01</span>
+                <h3>{t("Describe your idea.", "Describe tu idea.")}</h3>
+                <p>
+                  {t(
+                    "An idea in your notes is enough. Or bring a product brief, screenshots, a demo, and a prototype link.",
+                    "Basta una idea en tus notas. También puedes añadir un documento, capturas, un video y un enlace.",
+                  )}
+                </p>
+              </div>
+              <div>
+                <span>02</span>
+                <h3>{t("Review the evidence.", "Revisa la evidencia.")}</h3>
+                <p>
+                  {t(
+                    "Explore three simulated reactions, challenge assumptions, and get a practical plan for the next version.",
+                    "Explora tres reacciones simuladas, cuestiona suposiciones y recibe un plan práctico para la próxima versión.",
+                  )}
+                </p>
+              </div>
+              <div>
+                <span>03</span>
+                <h3>{t("Invite real people.", "Invita a personas reales.")}</h3>
+                <p>
+                  {t(
+                    "Share a no-login feedback link with people you invite. Their actual responses stay separate from AI simulations.",
+                    "Comparte un enlace sin inicio de sesión con quienes invites. Sus respuestas reales se distinguen de las simulaciones.",
+                  )}
+                </p>
+              </div>
+            </section>
             <section className="agents-home" id="agents">
               <div className="section-heading">
                 <div>
@@ -437,47 +483,12 @@ export default function Studio() {
               </div>
               <AgentRail language={language} onSelect={setBrain} />
             </section>
-            <section className="three-steps">
-              <div>
-                <span>01</span>
-                <h3>{t("Start where you are.", "Empieza donde estés.")}</h3>
-                <p>
-                  {t(
-                    "An idea in your notes is enough. Or bring a product brief, screenshots, a demo, and a prototype link.",
-                    "Basta una idea en tus notas. También puedes añadir un documento, capturas, un video y un enlace.",
-                  )}
-                </p>
-              </div>
-              <div>
-                <span>02</span>
-                <h3>
-                  {t(
-                    "Hear different perspectives.",
-                    "Escucha otras perspectivas.",
-                  )}
-                </h3>
-                <p>
-                  {t(
-                    "Explore three simulated reactions, challenge assumptions, and get a practical plan for the next version.",
-                    "Explora tres reacciones simuladas, cuestiona suposiciones y recibe un plan práctico para la próxima versión.",
-                  )}
-                </p>
-              </div>
-              <div>
-                <span>03</span>
-                <h3>{t("Put it to a real test.", "Haz una prueba real.")}</h3>
-                <p>
-                  {t(
-                    "Share a no-login feedback link with people you invite. Their actual responses stay separate from AI simulations.",
-                    "Comparte un enlace sin inicio de sesión con quienes invites. Sus respuestas reales se distinguen de las simulaciones.",
-                  )}
-                </p>
-              </div>
-            </section>
             <section className="perspective-section">
               <div className="perspective-preview">
                 <div className="perspective-lines" aria-hidden="true">
-                  <i /><i /><i />
+                  <i />
+                  <i />
+                  <i />
                 </div>
                 <div>
                   <h2>
@@ -522,8 +533,8 @@ export default function Studio() {
                 </h1>
                 <p>
                   {t(
-                    "Watch the work move from one perspective to the next.",
-                    "Observa cómo el trabajo pasa de una perspectiva a la siguiente.",
+                    "Watch each agent turn your brief into findings. Click a completed agent to read its result while the others work.",
+                    "Observa cómo cada agente convierte tu texto en hallazgos. Abre un agente completado para leer su resultado mientras los demás trabajan.",
                   )}
                 </p>
               </div>
@@ -617,6 +628,37 @@ export default function Studio() {
                 )}
               </p>
             )}
+            <div
+              className="report-route"
+              aria-label={t("How to use your report", "Cómo usar tu informe")}
+            >
+              <div>
+                <strong>
+                  {t("Your next three moves", "Tus tres próximos pasos")}
+                </strong>
+                <p>
+                  {t(
+                    "Read the findings, choose a change, then test it with people.",
+                    "Lee los hallazgos, elige una mejora y pruébala con personas.",
+                  )}
+                </p>
+              </div>
+              <button onClick={() => setTab("demand")}>
+                <span>1</span>
+                {t("Check the research", "Revisa las fuentes")}
+                <ArrowRight size={18} />
+              </button>
+              <button onClick={() => setTab("build")}>
+                <span>2</span>
+                {t("Choose what to improve", "Elige qué mejorar")}
+                <ArrowRight size={18} />
+              </button>
+              <button onClick={() => setTab("humans")}>
+                <span>3</span>
+                {t("Ask real people", "Pregunta a personas")}
+                <ArrowRight size={18} />
+              </button>
+            </div>
             <nav
               className="report-tabs"
               aria-label={t("Report sections", "Secciones del informe")}
@@ -1162,7 +1204,7 @@ export default function Studio() {
           onAnalyze={analyze}
           filesBusy={filesBusy}
           addFiles={addFiles}
-          error={error}
+          error={errorText(error, language)}
           questions={questions}
         />
       )}

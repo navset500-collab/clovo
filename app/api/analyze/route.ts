@@ -16,6 +16,7 @@ import { matchResearchCitations } from "@/lib/research";
 import { alignFictionalProfiles, contradictsAudience } from "@/lib/personas";
 import { guard, limitedJson, sameSecret } from "@/lib/access";
 import { reserve, usageResponse } from "@/lib/usage";
+import { errorCode, errorText, reviewErrorCode } from "@/lib/messages";
 import type {
   AgentId,
   AgentTrace,
@@ -26,22 +27,30 @@ import type {
 export const maxDuration = 180;
 export const runtime = "nodejs";
 export async function POST(request: Request) {
-  if (process.env.ANALYSIS_ENABLED === "false")
+  if (process.env.ANALYSIS_ENABLED === "false" || !process.env.GEMINI_API_KEY)
     return Response.json(
       {
         error:
           "New reviews are paused by the owner. The walkthrough and saved reports still work.",
+        code: "review_paused",
       },
       { status: 503 },
     );
   const denied = guard(request, "analysis", 10);
-  if (denied) return Response.json({ error: denied }, { status: 429 });
+  if (denied)
+    return Response.json(
+      { error: denied, code: errorCode(denied) },
+      { status: 429 },
+    );
   let raw;
   try {
     raw = await limitedJson(request);
   } catch {
     return Response.json(
-      { error: "The input is invalid or exceeds 4 MB. Use fewer attachments." },
+      {
+        error: "The input is invalid or exceeds 4 MB. Use fewer attachments.",
+        code: "invalid_input",
+      },
       { status: 400 },
     );
   }
@@ -49,6 +58,7 @@ export async function POST(request: Request) {
   if (!parsed.success)
     return Response.json(
       {
+        code: "invalid_input",
         error:
           parsed.error.issues[0]?.message ||
           "Add a name, at least 50 words about your project, and a specific audience.",
@@ -61,8 +71,11 @@ export async function POST(request: Request) {
     process.env.ANALYSIS_ACCESS_CODE &&
     !sameSecret(input.accessCode || "", process.env.ANALYSIS_ACCESS_CODE)
   )
-    return Response.json({ error: "Invalid access code." }, { status: 401 });
-  let release: () => Promise<void>;
+    return Response.json(
+      { error: "Invalid access code.", code: "invalid_access" },
+      { status: 401 },
+    );
+  let release: (completed?: boolean) => Promise<void>;
   try {
     release = await reserve(request, "analysis");
   } catch (e) {
@@ -89,6 +102,7 @@ export async function POST(request: Request) {
   const encoder = new TextEncoder();
   const started = Date.now();
   let open = true;
+  let completed = false;
   const stream = new ReadableStream({
     async start(controller) {
       const runEvents: RunEvent[] = [];
@@ -422,17 +436,18 @@ export async function POST(request: Request) {
           durationMs: Date.now() - started,
           traces,
         };
+        completed = true;
         emit({ type: "result", report });
       } catch (e) {
         lifetime.abort();
         emit({
           type: "error",
-          message:
-            e instanceof Error ? e.message : "Analysis could not finish.",
+          code: reviewErrorCode(e),
+          message: errorText(reviewErrorCode(e), input.language),
         });
       } finally {
         lifetime.abort();
-        await release();
+        await release(completed);
         if (open) {
           open = false;
           controller.close();

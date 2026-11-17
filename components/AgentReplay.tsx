@@ -100,7 +100,7 @@ export default function AgentReplay({
           ) as Report["personas"]
         }
         onOpen={onOpen}
-        replay={replaying}
+        replay={true}
       />
     </>
   );

@@ -16,7 +16,7 @@ import {
   MIN_DESCRIPTION_WORDS,
   MIN_AUDIENCE_WORDS,
 } from "@/lib/intake";
-import { USAGE_LIMITS } from "@/lib/usage-policy";
+import Allowance from "./Allowance";
 import { Modal } from "./Shared";
 export default function ProjectForm({
   language,
@@ -51,12 +51,7 @@ export default function ProjectForm({
       audienceWords >= MIN_AUDIENCE_WORDS &&
       draft.name.trim().length > 0;
   const [requiresCode, setRequiresCode] = useState(false);
-  useEffect(() => {
-    fetch("/api/status")
-      .then((r) => r.json())
-      .then((j) => setRequiresCode(Boolean(j.requiresCode)))
-      .catch(() => {});
-  }, []);
+  const [usageBlocked, setUsageBlocked] = useState(true);
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!ready) return;
@@ -391,6 +386,11 @@ export default function ProjectForm({
                 ))}
               </div>
             )}
+            <Allowance
+              language={language}
+              onCode={setRequiresCode}
+              onBlocked={setUsageBlocked}
+            />
             {requiresCode && (
               <label>
                 {t("Access code", "Código de acceso")}
@@ -406,26 +406,12 @@ export default function ProjectForm({
                 />
               </label>
             )}
-            <div className="allowance-note">
-              <strong>
-                {t(
-                  "A small, shared research allowance",
-                  "Un límite de investigación compartido",
-                )}
-              </strong>
-              <p>
-                {t(
-                  `Up to ${USAGE_LIMITS.perNetworkDaily} review starts per network each day. Clovo serves ${USAGE_LIMITS.daily} starts per day and ${USAGE_LIMITS.monthly} per month in total. A clarification or interrupted review still counts. Daily limits reset at midnight UTC.`,
-                  `Hasta ${USAGE_LIMITS.perNetworkDaily} inicios por red al día. Clovo permite ${USAGE_LIMITS.daily} al día y ${USAGE_LIMITS.monthly} al mes en total. Una aclaración o interrupción también cuenta. El límite diario se reinicia a medianoche UTC.`,
-                )}
-              </p>
-              <p>
-                {t(
-                  "Choose English or Español in the header before starting. This sets the report and questionnaire language.",
-                  "Elige English o Español en la cabecera antes de empezar. Así se define el idioma del informe y las preguntas.",
-                )}
-              </p>
-            </div>
+            <p className="report-language-note">
+              {t(
+                "Your report and participant questions will be in English.",
+                "Tu informe y las preguntas para participantes estarán en español.",
+              )}
+            </p>
             <p className="privacy-note">
               {t(
                 "Starting a review sends your brief and prepared files to Google Gemini. General topic queries go to Tavily for web research. Your project is shared with other people only if you create a feedback link.",
@@ -462,7 +448,7 @@ export default function ProjectForm({
           <button
             className="primary"
             type="submit"
-            disabled={!ready || filesBusy}
+            disabled={!ready || filesBusy || (step === 1 && usageBlocked)}
           >
             {step === 0
               ? t("Continue", "Continuar")

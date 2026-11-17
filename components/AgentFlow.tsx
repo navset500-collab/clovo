@@ -75,11 +75,15 @@ export default function AgentFlow({
       </button>
     );
   }
-  function connector(active: boolean, branch?: "split" | "merge") {
+  function connector(
+    active: boolean,
+    branch?: "split" | "merge",
+    moving = false,
+  ) {
     if (branch)
       return (
         <div
-          className={`pipeline-connector branch ${active ? "active" : ""}`}
+          className={`pipeline-connector branch ${active ? "active" : ""} ${moving ? "transmitting" : ""}`}
           aria-hidden="true"
         >
           <svg
@@ -106,7 +110,7 @@ export default function AgentFlow({
       );
     return (
       <div
-        className={`pipeline-connector ${active ? "active" : ""}`}
+        className={`pipeline-connector ${active ? "active" : ""} ${moving ? "transmitting" : ""}`}
         aria-hidden="true"
       >
         <span />
@@ -120,7 +124,11 @@ export default function AgentFlow({
       aria-label={es ? "Flujo de trabajo de los agentes" : "Agent workflow"}
     >
       <div className="pipeline-stage">{node(0)}</div>
-      {connector(statuses.mira === "done", "split")}
+      {connector(
+        statuses.mira === "done",
+        "split",
+        statuses.sora === "running" || statuses.juno === "running",
+      )}
       <div className="pipeline-stage parallel-stage">
         <span className="parallel-label">
           {es ? "En paralelo" : "In parallel"}
@@ -128,11 +136,23 @@ export default function AgentFlow({
         {node(1)}
         {node(2)}
       </div>
-      {connector(statuses.sora === "done" && statuses.juno === "done", "merge")}
+      {connector(
+        statuses.sora === "done" && statuses.juno === "done",
+        "merge",
+        statuses.rook === "running",
+      )}
       <div className="pipeline-stage">{node(3)}</div>
-      {connector(statuses.rook === "done")}
+      {connector(
+        statuses.rook === "done",
+        undefined,
+        statuses.leo === "running",
+      )}
       <div className="pipeline-stage">{node(4)}</div>
-      {connector(statuses.leo === "done")}
+      {connector(
+        statuses.leo === "done",
+        undefined,
+        statuses.vera === "running",
+      )}
       <div className="pipeline-stage">{node(5)}</div>
     </div>
   );
