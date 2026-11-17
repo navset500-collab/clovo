@@ -370,6 +370,14 @@ export default function HumanFeedback({
             "Vera preparó esta prueba a partir de tu idea y los problemas detectados. La tarea es algo que pides al participante que intente. Las preguntas exploran hábitos, dudas y motivos para cambiar. Son preguntas sugeridas, no respuestas ni pruebas de demanda.",
           )}
         </p>
+        {review.report.experiment.hypothesis && (
+          <div className="first-step">
+            <strong>
+              {t("The hypothesis to test", "La hipótesis que probar")}
+            </strong>
+            <p>{review.report.experiment.hypothesis}</p>
+          </div>
+        )}
         <h4>{t("Who to invite", "A quién invitar")}</h4>
         <p>{review.report.experiment.recruit}</p>
         <p>
@@ -386,6 +394,14 @@ export default function HumanFeedback({
           <strong>{t("Observe: ", "Observa: ")}</strong>
           {review.report.experiment.successSignal}
         </p>
+        {review.report.experiment.rethinkSignal && (
+          <p className="counter-evidence">
+            <strong>
+              {t("Reconsider the idea if: ", "Reconsidera la idea si: ")}
+            </strong>
+            {review.report.experiment.rethinkSignal}
+          </p>
+        )}
       </div>
       {publish && (
         <Modal

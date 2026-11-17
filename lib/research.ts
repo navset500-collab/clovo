@@ -1,4 +1,35 @@
-import type { Source } from "./types.ts";
+import type { Source, Market } from "./types.ts";
+export function auditResearch(
+  market: Pick<Market, "signals" | "alternatives" | "sources">,
+  proposedFindings: number,
+) {
+  const findings = [...market.signals, ...market.alternatives];
+  const cited = new Set(
+    findings.flatMap((f) =>
+      matchResearchCitations(f.citations || [], market.sources).map(
+        (c) => c.sourceId,
+      ),
+    ),
+  );
+  const hosts = new Set(
+    market.sources
+      .filter((s) => cited.has(s.id))
+      .flatMap((s) => {
+        try {
+          return [new URL(s.url).hostname.replace(/^www\./, "")];
+        } catch {
+          return [];
+        }
+      }),
+  );
+  return {
+    retrievedSources: market.sources.length,
+    citedSources: cited.size,
+    sourceDomains: hosts.size,
+    retainedFindings: findings.length,
+    discardedFindings: Math.max(0, proposedFindings - findings.length),
+  };
+}
 export function normalizeExcerpt(text: string) {
   return text.normalize("NFKC").replace(/\s+/g, " ").trim();
 }

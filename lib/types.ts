@@ -24,6 +24,12 @@ export type AgentTrace = {
   details: { title: string; detail: string }[];
 };
 export type Persona = {
+  panelIndex?: number;
+  ageRange?: string;
+  context?: string;
+  lens?: PanelProfile["lens"];
+  nonUseReason?: string;
+  suggestedChange?: string;
   name: string;
   role: string;
   situation: string;
@@ -33,6 +39,15 @@ export type Persona = {
   alternative: string;
   wouldTry: "yes" | "maybe" | "no";
   condition: string;
+};
+export type PanelProfile = {
+  name: string;
+  role: string;
+  situation: string;
+  focus: string;
+  ageRange: string;
+  context: string;
+  lens: "core-value" | "switching-habits" | "access" | "trust" | "low-need";
 };
 export type Source = {
   id: string;
@@ -54,6 +69,9 @@ export type Market = {
   alternatives: {
     name: string;
     difference: string;
+    targetUser?: string;
+    switchingCost?: string;
+    opportunity?: string;
     citations?: { sourceId: string; quote: string }[];
     sourceIds: string[];
   }[];
@@ -64,6 +82,13 @@ export type Market = {
   provider?: string;
   queries?: string[];
   searchHtml?: string;
+  audit?: {
+    retrievedSources: number;
+    citedSources: number;
+    sourceDomains: number;
+    retainedFindings: number;
+    discardedFindings: number;
+  };
 };
 export type EvidenceSource = {
   id: string;
@@ -79,6 +104,15 @@ export type Citation = {
   verification: "text-match" | "file-interpretation";
 };
 export type Concern = {
+  priority?: "critical" | "important" | "minor";
+  category?:
+    | "demand"
+    | "adoption"
+    | "experience"
+    | "feasibility"
+    | "trust"
+    | "economics";
+  counterEvidence?: string;
   id: string;
   title: string;
   evidence: string;
@@ -88,6 +122,10 @@ export type Concern = {
   basis: "brief-supported" | "file-interpretation" | "hypothesis";
 };
 export type RunEvent = {
+  kind?: "activity";
+  title?: string;
+  url?: string;
+  profile?: PanelProfile;
   at: number;
   agent: AgentId;
   status: AgentStatus;
@@ -103,6 +141,13 @@ export type Report = {
   model: string;
   summary: string;
   brief: {
+    decisionFrame?: {
+      job: string;
+      currentAlternative: string;
+      successMoment: string;
+      keyAssumption: string;
+      constraints: string[];
+    };
     product: string;
     problem: string;
     strengths: string[];
@@ -111,6 +156,8 @@ export type Report = {
   };
   market: Market;
   personas: Persona[];
+  panelSize?: number;
+  panelUnavailable?: number[];
   critique: Concern[];
   improvements: {
     findingIds: string[];
@@ -119,12 +166,25 @@ export type Report = {
     why: string;
     effort: string;
     check: string;
+    firstStep?: string;
+    tradeoff?: string;
+  }[];
+  directions?: {
+    title: string;
+    audience: string;
+    approach: string;
+    why: string;
+    tradeoff: string;
+    test: string;
+    findingIds: string[];
   }[];
   experiment: {
     task: string;
     questions: string[];
     successSignal: string;
     recruit: string;
+    hypothesis?: string;
+    rethinkSignal?: string;
   };
   durationMs: number;
   evidenceSources: EvidenceSource[];
@@ -139,16 +199,26 @@ export type AnalysisEvent =
       agent: AgentId;
       status: AgentStatus;
       message: string;
+      profile?: PanelProfile;
       trace?: AgentTrace;
     }
   | {
       type: "panel-status";
       at: number;
       index: number;
+      profile?: PanelProfile;
       status: AgentStatus;
       message: string;
     }
   | { type: "panel"; index: number; persona: Persona }
+  | {
+      type: "work";
+      at?: number;
+      agent: AgentId;
+      title: string;
+      message: string;
+      url?: string;
+    }
   | { type: "result"; report: Report }
   | { type: "clarify"; questions: string[] }
   | { type: "error"; message: string; code?: string };

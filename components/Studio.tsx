@@ -33,6 +33,13 @@ import LiveRun from "./LiveRun";
 import Walkthrough, { ProductPreview } from "./Walkthrough";
 import ProjectForm from "./ProjectForm";
 import Readiness from "./Readiness";
+import { PANEL_LABELS } from "@/lib/panel";
+import {
+  DecisionFrame,
+  ResearchAudit,
+  ConcernPriority,
+  AlternativeDirections,
+} from "./ReviewDepth";
 import { EvidenceBadges, EvidenceDrawer, EvidenceSummary } from "./Evidence";
 import { prepareFile } from "@/lib/files";
 import { errorText } from "@/lib/messages";
@@ -226,6 +233,19 @@ export default function Studio() {
           setStatus((s) => ({ ...s, [event.agent]: event.status }));
           if (event.trace)
             setTraces((s) => ({ ...s, [event.agent]: event.trace }));
+        } else if (event.type === "work") {
+          setEvents((v) => [
+            ...v,
+            {
+              at: event.at || 0,
+              agent: event.agent,
+              status: "running",
+              kind: "activity",
+              title: event.title,
+              message: event.message,
+              url: event.url,
+            },
+          ]);
         } else if (event.type === "panel-status") {
           setEvents((v) => [
             ...v,
@@ -235,6 +255,7 @@ export default function Studio() {
               status: event.status,
               message: event.message,
               persona: event.index,
+              profile: event.profile,
             },
           ]);
         } else if (event.type === "panel")
@@ -358,8 +379,8 @@ export default function Studio() {
                 </h1>
                 <p className="hero-description">
                   {t(
-                    "Describe what you’re building. Get research, three simulated user perspectives, and a plan to improve it. Then invite real people to test your idea.",
-                    "Describe lo que construyes. Recibe investigación, tres perspectivas simuladas y un plan de mejoras. Después invita a personas reales a probar tu idea.",
+                    "Describe what you’re building. Get research, five simulated user perspectives, and a plan to improve it. Then invite real people to test your idea.",
+                    "Describe lo que construyes. Recibe investigación, cinco perspectivas simuladas y un plan de mejoras. Después invita a personas reales a probar tu idea.",
                   )}
                 </p>
                 <div className="hero-actions">
@@ -444,8 +465,8 @@ export default function Studio() {
                 <h3>{t("Review the evidence.", "Revisa la evidencia.")}</h3>
                 <p>
                   {t(
-                    "Explore three simulated reactions, challenge assumptions, and get a practical plan for the next version.",
-                    "Explora tres reacciones simuladas, cuestiona suposiciones y recibe un plan práctico para la próxima versión.",
+                    "Explore five simulated reactions, challenge assumptions, and get a practical plan for the next version.",
+                    "Explora cinco reacciones simuladas, cuestiona suposiciones y recibe un plan práctico para la próxima versión.",
                   )}
                 </p>
               </div>
@@ -499,8 +520,8 @@ export default function Studio() {
                   </h2>
                   <p>
                     {t(
-                      "Six specialist agents. Three simulated perspectives. One clear next step.",
-                      "Seis agentes especialistas. Tres perspectivas simuladas. Un siguiente paso claro.",
+                      "Six specialist agents. Five simulated perspectives. One clear next step.",
+                      "Seis agentes especialistas. Cinco perspectivas simuladas. Un siguiente paso claro.",
                     )}
                   </p>
                 </div>
@@ -695,6 +716,7 @@ export default function Studio() {
                     language={language}
                     onSource={setSourceId}
                   />
+                  <DecisionFrame report={r} language={language} />
                   <div className="overview-grid">
                     <article className="lead-card">
                       <span className="detail-label">
@@ -759,6 +781,7 @@ export default function Studio() {
                     <article className="concern" key={i}>
                       <span className="concern-number">0{i + 1}</span>
                       <div>
+                        <ConcernPriority concern={c} language={language} />
                         <h3>{c.title}</h3>
                         <EvidenceBadges
                           concern={c}
@@ -767,6 +790,17 @@ export default function Studio() {
                         />
                         <p>{c.evidence}</p>
                         <p>{c.risk}</p>
+                        {c.counterEvidence && (
+                          <p className="counter-evidence">
+                            <strong>
+                              {t(
+                                "What could change this view: ",
+                                "Qué podría cambiar esta opinión: ",
+                              )}
+                            </strong>
+                            {c.counterEvidence}
+                          </p>
+                        )}
                         <div className="test-prompt">
                           <strong>{t("Test it: ", "Compruébalo: ")}</strong>
                           {c.test}
@@ -824,6 +858,7 @@ export default function Studio() {
                       <p className="search-notice">{r.market.searchNotice}</p>
                     )}
                   </div>
+                  <ResearchAudit report={r} language={language} />
                   {r.market.signals.map((s, i) => (
                     <article className="plain-card" key={i}>
                       <span className="research-kind">
@@ -867,6 +902,36 @@ export default function Studio() {
                           <article className="plain-card" key={i}>
                             <h3>{a.name}</h3>
                             <p>{a.difference}</p>
+                            {a.targetUser && (
+                              <p>
+                                <strong>
+                                  {t("Who it serves: ", "A quién sirve: ")}
+                                </strong>
+                                {a.targetUser}
+                              </p>
+                            )}
+                            {a.switchingCost && (
+                              <p>
+                                <strong>
+                                  {t(
+                                    "Switching friction · hypothesis: ",
+                                    "Fricción al cambiar · hipótesis: ",
+                                  )}
+                                </strong>
+                                {a.switchingCost}
+                              </p>
+                            )}
+                            {a.opportunity && (
+                              <p className="research-relevance">
+                                <strong>
+                                  {t(
+                                    "Possible opening · inference: ",
+                                    "Posible oportunidad · inferencia: ",
+                                  )}
+                                </strong>
+                                {a.opportunity}
+                              </p>
+                            )}
                             <ResearchQuotes
                               citations={a.citations}
                               sources={r.market.sources}
@@ -959,8 +1024,8 @@ export default function Studio() {
                     <div>
                       <h2>
                         {t(
-                          "Three people to imagine. Not three people interviewed.",
-                          "Tres personas imaginadas. No tres entrevistas.",
+                          `${r.personas.length} simulated perspectives. Real people still needed.`,
+                          `${r.personas.length} perspectivas simuladas. Aún faltan personas reales.`,
                         )}
                       </h2>
                       <p>
@@ -974,6 +1039,14 @@ export default function Studio() {
                       {t("AI simulation", "Simulación de IA")}
                     </span>
                   </div>
+                  {(r.panelUnavailable?.length || 0) > 0 && (
+                    <p className="example-notice">
+                      {t(
+                        `${r.panelUnavailable!.length} of ${r.panelSize} perspectives were unavailable. This is a partial panel; no responses were invented.`,
+                        `${r.panelUnavailable!.length} de ${r.panelSize} perspectivas no estuvieron disponibles. El panel es parcial; no se inventaron respuestas.`,
+                      )}
+                    </p>
+                  )}
                   <div className="persona-grid">
                     {r.personas.map((p, i) => (
                       <article className="persona-card" key={i}>
@@ -986,6 +1059,17 @@ export default function Studio() {
                             <span>{p.role}</span>
                           </div>
                         </div>
+                        {p.lens && (
+                          <span className="panel-lens">
+                            {PANEL_LABELS[p.lens][es ? 1 : 0]}
+                          </span>
+                        )}
+                        {p.ageRange && (
+                          <p className="persona-context">
+                            {t("Fictional age range: ", "Edad ficticia: ")}
+                            {p.ageRange} · {p.context}
+                          </p>
+                        )}
                         <p className="situation">{p.situation}</p>
                         <blockquote>“{p.reaction}”</blockquote>
                         <h4>{t("What feels useful", "Lo que parece útil")}</h4>
@@ -1001,6 +1085,28 @@ export default function Studio() {
                           )}
                         </h4>
                         <p>{p.alternative}</p>
+                        {p.nonUseReason && (
+                          <>
+                            <h4>
+                              {t(
+                                "Why they might never use it",
+                                "Por qué podrían no usarlo",
+                              )}
+                            </h4>
+                            <p>{p.nonUseReason}</p>
+                          </>
+                        )}
+                        {p.suggestedChange && (
+                          <>
+                            <h4>
+                              {t(
+                                "One change worth testing",
+                                "Un cambio que probar",
+                              )}
+                            </h4>
+                            <p>{p.suggestedChange}</p>
+                          </>
+                        )}
                         <div className="persona-condition">
                           <strong>
                             {t(
@@ -1068,6 +1174,22 @@ export default function Studio() {
                         </div>
                         <p className="large-copy">{i.change}</p>
                         <p>{i.why}</p>
+                        {i.firstStep && (
+                          <p className="first-step">
+                            <strong>
+                              {t("Start here: ", "Empieza aquí: ")}
+                            </strong>
+                            {i.firstStep}
+                          </p>
+                        )}
+                        {i.tradeoff && (
+                          <p>
+                            <strong>
+                              {t("Tradeoff: ", "Lo que sacrificas: ")}
+                            </strong>
+                            {i.tradeoff}
+                          </p>
+                        )}
                         <div className="plan-provenance">
                           {(i.findingIds || []).map((id) => {
                             const concern = r.critique.find((c) => c.id === id);
@@ -1095,6 +1217,7 @@ export default function Studio() {
                       </div>
                     </article>
                   ))}
+                  <AlternativeDirections report={r} language={language} />
                   <div className="closing-line">
                     <h3>
                       {t(

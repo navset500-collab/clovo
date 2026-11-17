@@ -67,18 +67,18 @@ export const AGENT_GUIDES: Record<AgentId, Guide> = {
       "La descripción original, el público, los archivos y el resumen de Mira.",
     ],
     output: [
-      "Three distinct fictional perspectives: a frequent user, a skeptical user and someone with a relevant constraint.",
-      "Tres perspectivas ficticias: uso frecuente, escepticismo y una limitación relevante.",
+      "Five distinct fictional perspectives: core value, existing habits, access, trust and reasons not to use the product.",
+      "Cinco perspectivas ficticias: valor principal, hábitos, acceso, confianza y motivos para no usar el producto.",
     ],
     steps: [
       [
-        "Runs three separate calls in parallel, each with a different point of view.",
-        "Adapts the fictional identities and situations to the actual audience.",
+        "Runs five separate calls in parallel, each with a different point of view.",
+        "Varies relevant ages, resources, experience and circumstances within the actual audience; demographic stereotypes are not evidence.",
         "Explores useful outcomes, obstacles, current alternatives and conditions for trying it.",
       ],
       [
-        "Ejecuta tres llamadas paralelas con puntos de vista distintos.",
-        "Adapta las identidades y situaciones ficticias al público real.",
+        "Ejecuta cinco llamadas paralelas con puntos de vista distintos.",
+        "Varía edades, recursos, experiencia y situaciones relevantes dentro del público; los estereotipos no son evidencia.",
         "Explora resultados útiles, obstáculos, alternativas y condiciones de uso.",
       ],
     ],
@@ -99,12 +99,12 @@ export const AGENT_GUIDES: Record<AgentId, Guide> = {
     ],
     steps: [
       [
-        "Challenges confident claims made by the earlier agents.",
+        "Ranks demand, adoption, experience and feasibility failure modes, then asks what evidence could weaken each criticism.",
         "Links each concern to original material; unmatched claims become hypotheses.",
         "Assesses problem clarity, audience focus, proposed value and testability.",
       ],
       [
-        "Cuestiona las afirmaciones de los agentes anteriores.",
+        "Prioriza fallos de demanda, adopción, experiencia y viabilidad y pide evidencia que podría debilitar cada crítica.",
         "Relaciona preocupaciones con material original; lo no respaldado queda como hipótesis.",
         "Evalúa claridad del problema, público, valor y facilidad de prueba.",
       ],
@@ -128,12 +128,12 @@ export const AGENT_GUIDES: Record<AgentId, Guide> = {
       [
         "Chooses the smallest useful change or experiment before proposing more features.",
         "Connects every recommendation to a specific concern.",
-        "Defines a check you can actually perform to tell whether the change is complete.",
+        "Proposes simpler alternative directions, with tradeoffs and a cheap test before committing to a pivot.",
       ],
       [
         "Prioriza el cambio o experimento útil más pequeño.",
         "Relaciona cada recomendación con una preocupación concreta.",
-        "Define una comprobación observable para cada cambio.",
+        "Propone direcciones más sencillas, con sacrificios y una prueba pequeña antes de cambiar de rumbo.",
       ],
     ],
     limit: [

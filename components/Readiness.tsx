@@ -20,6 +20,9 @@ export default function Readiness({
   const score = review.report.readiness,
     es = language === "es";
   if (!score) return null;
+  const next = [...score.dimensions]
+    .filter((d) => d.nextStep)
+    .sort((a, b) => a.points - b.points)[0];
   return (
     <section className="readiness-card">
       <div className="readiness-top">
@@ -56,6 +59,16 @@ export default function Readiness({
           </p>
         </div>
       </div>
+      {next && (
+        <div className="score-next">
+          <strong>
+            {es
+              ? "Una forma concreta de mejorar tu planteamiento"
+              : "One concrete way to strengthen your brief"}
+          </strong>
+          <p>{next.nextStep}</p>
+        </div>
+      )}
       <details className="score-details">
         <summary>
           <span>{es ? "Ver cómo se calculó" : "See how this was scored"}</span>
@@ -86,6 +99,12 @@ export default function Readiness({
                 <i style={{ width: `${d.points * 4}%` }} />
               </div>
               <p>{d.reason}</p>
+              {d.nextStep && (
+                <p>
+                  <strong>{es ? "Siguiente paso: " : "Next step: "}</strong>
+                  {d.nextStep}
+                </p>
+              )}
               {d.citations
                 .filter(
                   (c, i, all) =>

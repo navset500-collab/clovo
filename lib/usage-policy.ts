@@ -5,9 +5,9 @@ export const USAGE_LIMITS = {
   perNetworkDaily: 3,
   perNetworkCompletedDaily: 2,
   concurrent: 2,
-  modelCalls: 9,
-  inputTokens: 32000,
-  outputTokens: 6500,
+  modelCalls: 12,
+  inputTokens: 24000,
+  outputTokens: 4500,
 } as const;
 export type QuotaPolicy = {
   daily: number;

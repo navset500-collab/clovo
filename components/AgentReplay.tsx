@@ -29,7 +29,7 @@ export default function AgentReplay({
   }, [playing, position, events.length]);
   const statuses: Partial<Record<AgentId, AgentStatus>> = {};
   visible
-    .filter((e) => e.persona === undefined)
+    .filter((e) => e.persona === undefined && e.kind !== "activity")
     .forEach((e) => {
       statuses[e.agent] = e.status;
     });
@@ -93,14 +93,19 @@ export default function AgentReplay({
         traces={traces}
         events={visible}
         personas={
-          report.personas.map((p, i) =>
-            visible.some((e) => e.persona === i && e.status === "done")
-              ? p
-              : undefined,
+          Array.from(
+            { length: report.panelSize || report.personas.length },
+            (_, i) =>
+              report.personas.find(
+                (p, index) =>
+                  (p.panelIndex ?? index) === i &&
+                  visible.some((e) => e.persona === i && e.status === "done"),
+              ),
           ) as Report["personas"]
         }
         onOpen={onOpen}
         replay={true}
+        panelCount={report.panelSize || report.personas.length}
       />
     </>
   );

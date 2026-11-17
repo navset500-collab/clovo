@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ModelError } from "./model-error";
+import { createModelBudget } from "./model-budget";
 import type { Attachment, Source } from "./types";
 import { USAGE_LIMITS } from "./usage-policy";
 import { safeResearchQuery, sourceFromResult } from "./research";
@@ -43,15 +45,16 @@ async function generate(
       : AbortSignal.timeout(15000),
   });
   if (!counted.ok)
-    throw new Error(
-      "The input-size safety check is unavailable. Analysis stopped before generation.",
+    throw new ModelError(
+      counted.status === 429 ? "provider_quota" : "input_check_unavailable",
+      counted.status,
     );
   const count = (await counted.json()).totalTokens;
   if (!Number.isFinite(count) || count <= 0 || count > USAGE_LIMITS.inputTokens)
     throw new Error(
       "These materials exceed the safe reading limit. Use a shorter PDF, fewer images, or a focused text brief.",
     );
-  // No automatic retries: a timeout may already have consumed provider tokens.
+  // Retries are accounted for by the review-wide attempt budget.
   const res = await fetch(`${endpoint}:generateContent`, {
     method: "POST",
     headers,
@@ -61,25 +64,29 @@ async function generate(
       : AbortSignal.timeout(55000),
   });
   if (!res.ok)
-    throw new Error(
+    throw new ModelError(
       res.status === 429
-        ? "The AI provider has reached its quota. Please retry later."
-        : "The AI provider could not finish. No automatic retry was made.",
+        ? "provider_quota"
+        : res.status === 400
+          ? "provider_rejected"
+          : "provider_unavailable",
+      res.status,
     );
   return res.json();
 }
-export function createModelSession() {
-  let calls = 0;
+export function createModelSession(onRetry?: (schema: z.ZodType) => void) {
+  const run = createModelBudget(USAGE_LIMITS.modelCalls);
   return <T>(
     prompt: string,
     files: Attachment[],
     schema: z.ZodType<T>,
     signal?: AbortSignal,
   ) => {
-    if (++calls > USAGE_LIMITS.modelCalls)
-      throw new Error("This review reached its model-call safety limit.");
-    if (signal?.aborted) throw new Error("Analysis stopped.");
-    return askModel(prompt, files, schema, signal);
+    return run(
+      () => askModel(prompt, files, schema, signal),
+      signal,
+      () => onRetry?.(schema),
+    );
   };
 }
 function textOf(j: any) {
@@ -128,7 +135,7 @@ export async function askModel<T>(
         .replace(/\s*```$/, ""),
     );
   } catch {
-    throw new Error("The AI returned an incomplete result. Please retry.");
+    throw new ModelError("model_incomplete");
   }
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
@@ -136,9 +143,7 @@ export async function askModel<T>(
       "Invalid model format",
       parsed.error.issues.map((i) => ({ path: i.path, code: i.code })),
     );
-    throw new Error(
-      "The analysis did not pass our format checks. Please retry.",
-    );
+    throw new ModelError("model_format");
   }
   return parsed.data;
 }
@@ -148,6 +153,7 @@ export async function searchMarket(
   signal?: AbortSignal,
   proposedQueries: string[] = [],
   projectName = "",
+  onActivity?: (title: string, detail: string, url?: string) => void,
 ): Promise<{
   text: string;
   sources: Source[];
@@ -184,6 +190,12 @@ export async function searchMarket(
   else headers["X-Tavily-Access-Mode"] = "keyless";
   const responses = await Promise.allSettled(
     queries.map(async (query) => {
+      onActivity?.(
+        language === "Spanish"
+          ? "Buscando fuentes públicas"
+          : "Searching public sources",
+        query,
+      );
       const r = await fetch("https://api.tavily.com/search", {
         method: "POST",
         headers,
@@ -210,8 +222,14 @@ export async function searchMarket(
     sources: Source[] = [];
   for (const value of raw) {
     const source = sourceFromResult(value, sources.length);
-    if (source && !sources.some((s) => s.url === source.url))
+    if (source && !sources.some((s) => s.url === source.url)) {
       sources.push(source);
+      onActivity?.(
+        language === "Spanish" ? "Fuente recuperada" : "Source retrieved",
+        source.title,
+        source.url,
+      );
+    }
   }
   if (!sources.length)
     return empty(

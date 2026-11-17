@@ -1,6 +1,30 @@
 // Keep error identifiers in state, then translate at render time. Changing the
 // language must also translate errors that were received before the switch.
 const messages: Record<string, [string, string]> = {
+  model_budget: [
+    "This review reached its fixed AI attempt budget. Remaining work has stopped.",
+    "El análisis alcanzó su presupuesto fijo de intentos de IA. El trabajo restante se detuvo.",
+  ],
+  provider_unavailable: [
+    "The AI provider could not complete this request. Your brief is still here. Clovo allows at most one automatic retry per review. Try later if starts remain.",
+    "El proveedor de IA no pudo completar esta solicitud. Tu texto sigue aquí. Clovo permite como máximo un reintento automático por análisis. Vuelve más tarde si quedan inicios.",
+  ],
+  provider_rejected: [
+    "The AI provider rejected the review request. This needs a configuration check; retrying the same brief is unlikely to help right now.",
+    "El proveedor de IA rechazó la solicitud. Hay que revisar la configuración; repetir el mismo texto probablemente no ayude ahora.",
+  ],
+  input_check_unavailable: [
+    "The provider’s input-size safety check failed. This run stopped before generating a review. Try again later if starts remain.",
+    "Falló la comprobación de tamaño del proveedor. El proceso se detuvo antes de generar un análisis. Inténtalo más tarde si quedan inicios.",
+  ],
+  model_incomplete: [
+    "The AI returned an incomplete response. Your brief is still here. No completed review was recorded; you can retry if starts remain.",
+    "La IA devolvió una respuesta incompleta. Tu texto sigue aquí. No se registró un análisis completo; puedes reintentar si quedan inicios.",
+  ],
+  model_format: [
+    "The AI response did not pass Clovo’s structure checks. Your brief is still here. No completed review was recorded; you can retry if starts remain.",
+    "La respuesta de IA no pasó las comprobaciones de estructura. Tu texto sigue aquí. No se registró un análisis completo; puedes reintentar si quedan inicios.",
+  ],
   requests_network_daily: [
     "This Wi-Fi/network has reached its daily limit for this action. Please return after midnight UTC.",
     "Esta red o Wi-Fi ha alcanzado el límite diario para esta acción. Vuelve después de medianoche UTC.",
@@ -148,6 +172,14 @@ export function errorText(value: string, language: "en" | "es") {
   return pair ? pair[language === "es" ? 1 : 0] : value;
 }
 export function reviewErrorCode(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    messages[error.code]
+  )
+    return error.code;
   const message = error instanceof Error ? error.message : "";
   const code = errorCode(message);
   return code !== message ? code : "review_failed";

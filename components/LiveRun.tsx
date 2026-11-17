@@ -4,6 +4,8 @@ import { ArrowRight, Check, Radio, ChevronDown } from "lucide-react";
 import { AGENT_GUIDES } from "@/lib/agent-guides";
 import { AGENTS, AgentDrawing } from "./AgentLab";
 import AgentFlow from "./AgentFlow";
+import WorkNotes, { WorkTabs } from "./WorkNotes";
+import { PANEL_SIZE, PANEL_LABELS } from "@/lib/panel";
 import type {
   AgentId,
   AgentStatus,
@@ -21,6 +23,7 @@ export default function LiveRun({
   onOpen,
   personas = [],
   replay = false,
+  panelCount = PANEL_SIZE,
 }: {
   language: Language;
   statuses: Partial<Record<AgentId, AgentStatus>>;
@@ -29,6 +32,7 @@ export default function LiveRun({
   onOpen: (id: AgentId) => void;
   personas?: Persona[];
   replay?: boolean;
+  panelCount?: number;
 }) {
   const es = language === "es",
     t = (a: string, b: string) => (es ? b : a),
@@ -188,6 +192,7 @@ export default function LiveRun({
         }}
         statuses={statuses}
         events={events}
+        panelCount={panelCount}
       />
       {latestFinding && (
         <div
@@ -208,6 +213,16 @@ export default function LiveRun({
           </button>
         </div>
       )}
+      <WorkTabs
+        selected={selected}
+        onSelect={(id) => {
+          setSelected(id);
+          setFollow(false);
+        }}
+        statuses={statuses}
+        events={events}
+        language={language}
+      />
       <div className="live-workbench">
         <div
           className="live-center"
@@ -221,7 +236,9 @@ export default function LiveRun({
                   ? t("Completed handoff", "Entrega completada")
                   : statuses[selected] === "running"
                     ? t("Working now", "Trabajando ahora")
-                    : t("Upcoming step", "Siguiente paso")}
+                    : statuses[selected] === "error"
+                      ? t("Interrupted", "Interrumpido")
+                      : t("Upcoming step", "Siguiente paso")}
               </span>
               <h2>{a.name}</h2>
             </div>
@@ -245,6 +262,14 @@ export default function LiveRun({
             )}
           </div>
           <p className="live-job">{a.job[es ? 1 : 0]}</p>
+          <WorkNotes
+            events={events}
+            selected={selected}
+            language={language}
+            working={statuses[selected] === "running"}
+            replay={replay}
+          />
+
           <details className="live-responsibilities">
             <summary>
               {t("What this agent checks", "Qué comprueba este agente")}
@@ -257,21 +282,36 @@ export default function LiveRun({
           </details>
           {selected === "juno" && (
             <div className="live-personas">
-              {[0, 1, 2].map((i) => {
+              {Array.from({ length: panelCount }, (_, i) => i).map((i) => {
                 const event = events.filter((e) => e.persona === i).at(-1),
-                  p = personas[i];
+                  p = personas[i],
+                  profile =
+                    event?.profile ||
+                    events.find((e) => e.persona === i && e.profile)?.profile;
                 return (
                   <div key={i}>
                     <strong>
-                      {p?.name || `${t("Perspective", "Perspectiva")} ${i + 1}`}
+                      {p?.name ||
+                        profile?.name ||
+                        `${t("Perspective", "Perspectiva")} ${i + 1}`}
                     </strong>
                     <span>
                       {event?.status === "done"
                         ? t("Returned", "Completado")
                         : event?.status === "running"
                           ? t("Evaluating…", "Evaluando…")
-                          : t("Waiting", "En espera")}
+                          : event?.status === "error"
+                            ? t("Unavailable", "No disponible")
+                            : t("Waiting", "En espera")}
                     </span>
+                    {profile && (
+                      <p className="live-profile">
+                        {PANEL_LABELS[profile.lens][es ? 1 : 0]} ·{" "}
+                        {profile.ageRange}
+                        <br />
+                        {profile.context}
+                      </p>
+                    )}
                     {p && <p>{p.reaction}</p>}
                     {event?.status === "running" && (
                       <span className="typing-indicator" aria-hidden="true">
@@ -313,10 +353,15 @@ export default function LiveRun({
                       "Reading, checking, connecting.",
                       "Leyendo, comprobando, conectando.",
                     )
-                  : t(
-                      "A handoff is on its way.",
-                      "La siguiente entrega está en camino.",
-                    )}
+                  : statuses[selected] === "error"
+                    ? t(
+                        "This step did not finish.",
+                        "Este paso no se completó.",
+                      )
+                    : t(
+                        "A handoff is on its way.",
+                        "La siguiente entrega está en camino.",
+                      )}
               </h3>
               <p>
                 {statuses[selected] === "running"
@@ -324,10 +369,15 @@ export default function LiveRun({
                       "The completed result will appear here. You can explore the other agents while this one works.",
                       "El resultado aparecerá aquí. Puedes explorar los otros agentes mientras este trabaja.",
                     )
-                  : t(
-                      "This step starts when the earlier agents finish. Select a completed step to see what has already been found.",
-                      "Este paso empieza cuando terminan los agentes anteriores. Abre un paso completado para ver sus hallazgos.",
-                    )}
+                  : statuses[selected] === "error"
+                    ? t(
+                        "No result was invented. Check the review notice for the reason and your available next step.",
+                        "No se inventó un resultado. Consulta el aviso del análisis para conocer el motivo y el siguiente paso disponible.",
+                      )
+                    : t(
+                        "This step starts when the earlier agents finish. Select a completed step to see what has already been found.",
+                        "Este paso empieza cuando terminan los agentes anteriores. Abre un paso completado para ver sus hallazgos.",
+                      )}
               </p>
             </div>
           )}
@@ -380,11 +430,13 @@ export default function LiveRun({
                           `${t("Perspective", "Perspectiva")} ${e.persona + 1}`}
                     </strong>
                     <span>
-                      {e.status === "running"
-                        ? t("started", "inició")
-                        : e.status === "done"
-                          ? t("finished", "terminó")
-                          : t("interrupted", "interrumpido")}
+                      {e.kind === "activity"
+                        ? e.title
+                        : e.status === "running"
+                          ? t("started", "inició")
+                          : e.status === "done"
+                            ? t("finished", "terminó")
+                            : t("interrupted", "interrumpido")}
                     </span>
                     <p>{e.message}</p>
                   </div>

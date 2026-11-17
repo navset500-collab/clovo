@@ -19,13 +19,15 @@ export function alignFictionalProfiles<
   const group = parentAudience(audience),
     names =
       group === "mothers"
-        ? ["Nina", "Maya", "Lucía"]
+        ? ["Nina", "Maya", "Lucía", "Sofia", "Elena"]
         : group === "fathers"
-          ? ["Daniel", "Omar", "Leo"]
+          ? ["Daniel", "Omar", "Leo", "Mateo", "Elias"]
           : null;
   return profiles.map((p, i) => ({
     ...p,
-    name: names?.[i] || p.name,
+    name: contradictsAudience(audience, p.role + " " + p.situation)
+      ? names?.[i] || p.name
+      : p.name,
     role: contradictsAudience(audience, p.role)
       ? audience.slice(0, 150)
       : p.role,

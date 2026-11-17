@@ -236,8 +236,8 @@ export default function Walkthrough({
               <>
                 <p>
                   {es
-                    ? "Sora investiga la evidencia pública mientras Juno explora tres perspectivas simuladas. Rook luego cuestiona sus conclusiones."
-                    : "Sora investigates public evidence while Juno explores three simulated perspectives. Rook then challenges their conclusions."}
+                    ? "Sora investiga la evidencia pública mientras Juno explora cinco perspectivas simuladas. Rook luego cuestiona sus conclusiones."
+                    : "Sora investigates public evidence while Juno explores five simulated perspectives. Rook then challenges their conclusions."}
                 </p>
                 <div className="walkthrough-personas">
                   {(es

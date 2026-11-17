@@ -20,6 +20,7 @@ export type Readiness = {
     rating: number;
     points: number;
     reason: string;
+    nextStep?: string;
     citations: Citation[];
   }[];
 };
@@ -28,6 +29,7 @@ export function scoreReadiness(
     id: ReadinessDimension;
     rating: number;
     reason: string;
+    nextStep?: string;
     citations: { sourceId: string; quote: string; location: string }[];
   }[],
   sources: EvidenceSource[],
@@ -46,6 +48,7 @@ export function scoreReadiness(
       rating,
       points: rating * 6.25,
       reason: item?.reason || "Not assessed in this review.",
+      nextStep: item?.nextStep,
       citations,
     };
   });

@@ -18,12 +18,12 @@ Start with a written idea of at least 50 words and a specific audience. Mira ask
 | ----- | ----------------------------------------------------------------- |
 | Mira  | Understands the problem and supplied material                     |
 | Sora  | Investigates demand evidence and identifies what is still unknown |
-| Juno  | Runs three separate, explicitly simulated user perspectives       |
+| Juno  | Runs five separate, explicitly simulated user perspectives        |
 | Rook  | Challenges assumptions and connects concerns to original sources  |
 | Leo   | Produces prioritized changes with concrete acceptance checks      |
 | Vera  | Designs a neutral study for real people                           |
 
-The live workspace streams actual server events: agent starts, completed handoffs, and the three tester calls as they return. It doesn't invent private reasoning or fake progress. All agents use the same Gemini base model with different roles; they are not six independently trained models.
+The live workspace streams actual server events: agent starts, completed handoffs, and the five perspective calls as they return. It doesn't invent private reasoning or fake progress. All agents use the same Gemini base model with different roles; they are not six independently trained models.
 
 ## Ask: “Where did that feedback come from?”
 
@@ -49,7 +49,7 @@ Studies and responses use private Vercel Blob storage. Random invitation links a
 - Topic-specific web research with quote-matched sources
 - A transparent readiness-to-test rubric
 - Six-agent orchestration with a live activity feed
-- Three independently called AI personas
+- Five independently called AI personas
 - Evidence-linked concerns and build priorities
 - No-login human feedback studies
 - English and Spanish UI and AI output
@@ -68,7 +68,7 @@ Videos are reviewed as six sampled frames, without audio. The prototype link is 
 
 The public app defaults to **5 review starts per UTC day, 20 per calendar month across every visitor, and 3 starts per network per day for at most 2 completed reviews**. All production deployments share a private, durable usage ledger. Conditional writes with ETags prevent parallel Vercel instances from overspending the allowance. If storage cannot be checked, generation stays off. There are at most two active reviews globally and one per network. Failed, cancelled and clarification-only runs do not increment the completed-review count. Their starts still count against all cost caps, so a network can retry within its three-start allowance. Invalid or quota-blocked requests start no AI work. Existing ledgers retain their start counts; migration does not reset spending history. A failed run is not a guaranteed free retry when the shared daily or monthly budget is exhausted.
 
-A review can make at most **9 model calls**, each preceded by a provider token count capped at **32,000 input tokens**; output is capped at **6,500 tokens per call**. There are no automatic model retries or paid Google grounding calls. The approved model is `gemini-3.5-flash-lite`; changing it requires a code review of the limits. Two Tavily queries at most run per review, with free access unless you explicitly configure a key. Cancellation and a 150-second deadline abort remaining work. A request already received by a provider may still be charged.
+A review can make at most **12 model attempts (11 planned calls and at most one shared retry)**, each preceded by a provider token count capped at **24,000 input tokens**; output is capped at **4,500 tokens per attempt**. Only a 503 provider-unavailable response can receive one automatic retry, after a short backoff, across the entire review. The retry consumes the same hard attempt budget; quota errors, timeouts and malformed outputs are not retried. There are no paid Google grounding calls. The approved model is `gemini-3.5-flash-lite`; changing it requires a code review of the limits. Two Tavily queries at most run per review, with free access unless you explicitly configure a key. Cancellation and a 150-second deadline abort remaining work. A request already received by a provider may still be charged.
 
 Set `ANALYSIS_ENABLED=false` and redeploy to pause all new reviews. Set `ANALYSIS_ACCESS_CODE` for optional invite-only access. Neither setting bypasses the shared caps. Limits live in `lib/usage-policy.ts`; lowering them applies immediately on deployment. Development and production use separate counters. Do not delete or reset the production ledger to “fix” a quota message.
 
@@ -122,3 +122,17 @@ The intake form checks an approximate allowance snapshot before a review starts.
 The homepage follows describe → review → invite. The report's next-step guide links to research, improvements and real feedback. Creating a feedback link creates an unlisted, no-index page at `/test/<random-id>` on Clovo; it does not send invitations or publish to another service. Anyone with the link can read the shared invitation. Owners copy the link, invite people themselves, and check responses in the same browser. Files and AI reports are excluded from the invitation.
 
 The live workspace's six-segment progress display advances only on completed agent events. Animated connections indicate active downstream work. The latest completed finding remains readable while other agents work, and the original event log remains available. Reduced-motion preferences disable the new animated treatments.
+
+### Deeper reviews, with explicit uncertainty
+
+Clovo uses a structured review protocol, not university credentials or a claim of expert certification. Mira identifies the job, current workaround, first moment of value, and pivotal assumption. Sora checks source excerpts for demand signals and named alternatives, distinguishes cited facts from switching/differentiation hypotheses, and reports retrieved versus cited sources. A source match does not establish truth, independence or market demand; two web queries are a bounded search, not a comprehensive market study.
+
+Juno plans five fictional perspectives across core value, existing habits, access, trust and low need. Ages, practical resources and circumstances vary within the declared audience; age or demographics do not determine behavior. Each perspective supplies a specific reason not to adopt and a change to test. If a call fails, the report keeps the available responses with explicit coverage and no invented replacement. Any retry is bounded by the single shared 503 retry slot. Old three-person reports remain readable.
+
+Rook ranks failure modes and includes evidence that could weaken each criticism. The /100 readiness score retains its four-part rubric and now includes a concrete next step per dimension. Leo connects improvements and alternative directions to validated concern IDs, with first actions and tradeoffs. Vera specifies a hypothesis, observable test and negative evidence that should trigger reconsideration. These are proposals, not measured outcomes.
+
+The live research desk switches between workspaces as real updates arrive. It shows submitted search terms, retrieved source links, citation-check counts, panel profiles and completed outputs. Text reveal and slide animations present existing information; they do not simulate hidden reasoning or pretend to browse a prototype. Recorded replay makes no API calls, and reduced-motion preferences are respected.
+
+The five-person panel raises the maximum model-call count from 9 to 12 (including one bounded 503 retry) while reducing each call's maximum input/output. The theoretical per-review maxima change from 288,000 input / 58,500 output tokens to 288,000 input / 54,000 output tokens. This does not guarantee average cost is unchanged; it preserves the previous worst-case token envelope. The shared 5-start daily and 20-start monthly caps remain unchanged.
+
+Provider overload handling follows [Google’s API error guidance](https://ai.google.dev/gemini-api/docs/generate-content/api-errors). Only the single bounded retry is automatic; the app never loops until a request succeeds. Safe diagnostics retain the category and status code, not provider response bodies or secrets.

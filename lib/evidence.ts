@@ -68,6 +68,9 @@ export function checkCitations(
 }
 export function groundConcerns(
   items: {
+    priority?: Concern["priority"];
+    category?: Concern["category"];
+    counterEvidence?: string;
     title: string;
     evidence: string;
     risk: string;
@@ -76,19 +79,26 @@ export function groundConcerns(
   }[],
   sources: EvidenceSource[],
 ): Concern[] {
-  return items.map((c, i) => {
-    const citations = checkCitations(c.citations, sources);
-    return {
-      ...c,
-      id: `C${i + 1}`,
-      citations,
-      basis: citations.some((c) => c.verification === "text-match")
-        ? "brief-supported"
-        : citations.length
-          ? "file-interpretation"
-          : "hypothesis",
-    };
-  });
+  const priority = { critical: 0, important: 1, minor: 2 };
+  return [...items]
+    .sort(
+      (a, b) =>
+        priority[a.priority || "important"] -
+        priority[b.priority || "important"],
+    )
+    .map((c, i) => {
+      const citations = checkCitations(c.citations, sources);
+      return {
+        ...c,
+        id: `C${i + 1}`,
+        citations,
+        basis: citations.some((c) => c.verification === "text-match")
+          ? "brief-supported"
+          : citations.length
+            ? "file-interpretation"
+            : "hypothesis",
+      };
+    });
 }
 export function linkPlans<T extends { findingIds: string[] }>(
   plans: T[],

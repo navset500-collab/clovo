@@ -2,6 +2,7 @@
 import type { CSSProperties } from "react";
 import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import type { AgentId, AgentStatus, Language, RunEvent } from "@/lib/types";
+import { PANEL_SIZE } from "@/lib/panel";
 import { AGENTS, AgentDrawing } from "./AgentLab";
 export default function AgentFlow({
   language,
@@ -9,12 +10,14 @@ export default function AgentFlow({
   onSelect,
   statuses = {},
   events = [],
+  panelCount = PANEL_SIZE,
 }: {
   language: Language;
   selected?: AgentId;
   onSelect: (id: AgentId) => void;
   statuses?: Partial<Record<AgentId, AgentStatus>>;
   events?: RunEvent[];
+  panelCount?: number;
 }) {
   const es = language === "es";
   function node(index: number) {
@@ -63,10 +66,12 @@ export default function AgentFlow({
           <div
             className="pipeline-personas"
             aria-label={
-              es ? "Tres perfiles simulados" : "Three simulated profiles"
+              es
+                ? `${panelCount} perfiles simulados`
+                : `${panelCount} simulated profiles`
             }
           >
-            {[0, 1, 2].map((i) => {
+            {Array.from({ length: panelCount }, (_, i) => i).map((i) => {
               const e = events.filter((e) => e.persona === i).at(-1);
               return <i key={i} className={e?.status || ""} />;
             })}

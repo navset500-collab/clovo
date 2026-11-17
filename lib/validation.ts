@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PANEL_SIZE, PANEL_LENSES } from "./panel.ts";
 import {
   wordCount,
   MIN_DESCRIPTION_WORDS,
@@ -84,6 +85,16 @@ export const inputSchema = z.object({
   accessCode: z.string().max(200).optional(),
 });
 export const briefSchema = z.object({
+  missingEssentials: z
+    .array(z.enum(["problem", "audience", "workflow"]))
+    .max(3),
+  decisionFrame: z.object({
+    job: z.string().max(600),
+    currentAlternative: z.string().max(500),
+    successMoment: z.string().max(500),
+    keyAssumption: z.string().max(600),
+    constraints: z.array(z.string().max(300)).max(4),
+  }),
   product: z.string().max(260),
   clarifyingQuestions: z.array(z.string().max(300)).max(3),
   researchQueries: z.array(z.string().max(250)).max(2),
@@ -122,6 +133,9 @@ export const marketSchema = z.object({
       z.object({
         name: z.string().max(160),
         difference: prose,
+        targetUser: z.string().max(350),
+        switchingCost: z.string().max(500),
+        opportunity: z.string().max(600),
         citations: z
           .array(
             z.object({
@@ -144,12 +158,17 @@ export const panelPlanSchema = z.object({
         role: z.string().max(150),
         situation: z.string().max(500),
         focus: z.string().max(400),
+        ageRange: z.string().max(100),
+        context: z.string().max(400),
+        lens: z.enum(PANEL_LENSES),
       }),
     )
-    .min(3)
-    .max(3),
+    .min(PANEL_SIZE)
+    .max(PANEL_SIZE),
 });
 export const personaSchema = z.object({
+  nonUseReason: z.string().max(600),
+  suggestedChange: z.string().max(600),
   name: z.string().max(80),
   role: z.string().max(140),
   situation: prose,
@@ -168,6 +187,7 @@ export const critiqueSchema = z.object({
         id: z.enum(["problem", "audience", "value", "testability"]),
         rating: z.number().int().min(0).max(4),
         reason: prose,
+        nextStep: z.string().max(500),
         citations: z
           .array(
             z.object({
@@ -184,6 +204,16 @@ export const critiqueSchema = z.object({
   concerns: z
     .array(
       z.object({
+        priority: z.enum(["critical", "important", "minor"]),
+        category: z.enum([
+          "demand",
+          "adoption",
+          "experience",
+          "feasibility",
+          "trust",
+          "economics",
+        ]),
+        counterEvidence: z.string().max(600),
         title: z.string().max(160),
         evidence: prose,
         risk: prose,
@@ -199,10 +229,24 @@ export const critiqueSchema = z.object({
           .max(3),
       }),
     )
-    .min(1)
-    .max(4),
+    .min(3)
+    .max(5),
 });
 export const planSchema = z.object({
+  directions: z
+    .array(
+      z.object({
+        title: z.string().max(140),
+        audience: z.string().max(350),
+        approach: z.string().max(600),
+        why: z.string().max(500),
+        tradeoff: z.string().max(500),
+        test: z.string().max(500),
+        findingIds: z.array(z.string().max(30)).min(1).max(4),
+      }),
+    )
+    .min(1)
+    .max(2),
   summary: prose,
   improvements: z
     .array(
@@ -213,12 +257,16 @@ export const planSchema = z.object({
         why: prose,
         effort: z.string().max(80),
         check: prose,
+        firstStep: z.string().max(500),
+        tradeoff: z.string().max(500),
       }),
     )
     .min(1)
     .max(4),
 });
 export const experimentSchema = z.object({
+  hypothesis: z.string().max(500),
+  rethinkSignal: z.string().max(600),
   summary: prose,
   task: prose,
   questions: z.array(z.string().max(350)).min(2).max(4),

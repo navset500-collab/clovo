@@ -34,10 +34,10 @@ export const AGENTS: {
     id: "juno",
     name: "Juno",
     color: "#b9a1ee",
-    role: ["brings three perspectives", "aporta tres perspectivas"],
+    role: ["brings five perspectives", "aporta cinco perspectivas"],
     job: [
-      "Runs three independent AI personas, tailored to your audience.",
-      "Ejecuta tres perfiles de IA independientes, adaptados a tu público.",
+      "Runs five independent AI personas, tailored to your audience.",
+      "Ejecuta cinco perfiles de IA independientes, adaptados a tu público.",
     ],
   },
   {
