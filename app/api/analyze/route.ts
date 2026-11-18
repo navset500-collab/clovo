@@ -20,6 +20,7 @@ import { needsClarification } from "@/lib/intake";
 import { auditResearch } from "@/lib/research";
 import { alignFictionalProfiles, contradictsAudience } from "@/lib/personas";
 import { guard, limitedJson, sameSecret } from "@/lib/access";
+import { visitorIdentity } from "@/lib/visitor-quota";
 import { reserve, usageResponse } from "@/lib/usage";
 import { errorCode, errorText, reviewErrorCode } from "@/lib/messages";
 import type {
@@ -80,11 +81,16 @@ export async function POST(request: Request) {
       { error: "Invalid access code.", code: "invalid_access" },
       { status: 401 },
     );
-  let release: (completed?: boolean) => Promise<void>;
+  const visitor = process.env.BLOB_READ_WRITE_TOKEN
+    ? visitorIdentity(request, process.env.BLOB_READ_WRITE_TOKEN)
+    : null;
+  let release: (completed?: boolean, failureCode?: string) => Promise<void>;
   try {
-    release = await reserve(request, "analysis");
+    release = await reserve(request, "analysis", undefined, visitor?.key);
   } catch (e) {
-    return usageResponse(e);
+    const response = usageResponse(e);
+    if (visitor?.cookie) response.headers.set("Set-Cookie", visitor.cookie);
+    return response;
   }
   const lifetime = new AbortController();
   const signal = AbortSignal.any([
@@ -107,6 +113,9 @@ export async function POST(request: Request) {
   const started = Date.now();
   let open = true;
   let completed = false;
+  let failureCode = "";
+  let failureAgent: AgentId | undefined;
+  const reviewId = crypto.randomUUID();
   const stream = new ReadableStream({
     async start(controller) {
       const runEvents: RunEvent[] = [];
@@ -195,6 +204,7 @@ export async function POST(request: Request) {
           });
           return value;
         } catch (e) {
+          failureAgent ||= id;
           emit({
             type: "agent",
             agent: id,
@@ -531,7 +541,7 @@ export async function POST(request: Request) {
         );
         const report: Report = {
           readiness: scoreReadiness(rawCritique.readiness, evidenceSources),
-          id: crypto.randomUUID(),
+          id: reviewId,
           createdAt: new Date().toISOString(),
           language: input.language,
           mode: "live",
@@ -551,22 +561,39 @@ export async function POST(request: Request) {
           durationMs: Date.now() - started,
           traces,
         };
+        try {
+          await release(true);
+        } catch {
+          throw new ModelError("completion_save_failed");
+        }
         completed = true;
         emit({ type: "result", report });
       } catch (e) {
+        failureCode =
+          signal.aborted && signal.reason?.name === "TimeoutError"
+            ? "review_timeout"
+            : reviewErrorCode(e);
         lifetime.abort();
         console.error("Review interrupted", {
-          code: reviewErrorCode(e),
+          code: failureCode,
+          reviewId,
+          agent: failureAgent,
           status: e instanceof ModelError ? e.status : undefined,
         });
         emit({
           type: "error",
-          code: reviewErrorCode(e),
-          message: errorText(reviewErrorCode(e), input.language),
+          code: failureCode,
+          reference: reviewId.slice(0, 8),
+          agent: failureAgent,
+          message: errorText(failureCode, input.language),
         });
       } finally {
         lifetime.abort();
-        await release(completed);
+        try {
+          await release(false, failureCode);
+        } catch {
+          /* A failed cleanup does not fabricate a completion; the lease expires. */
+        }
         if (open) {
           open = false;
           controller.close();
@@ -583,6 +610,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/x-ndjson",
       "Cache-Control": "no-store, no-transform",
       "X-Accel-Buffering": "no",
+      ...(visitor?.cookie ? { "Set-Cookie": visitor.cookie } : {}),
     },
   });
 }

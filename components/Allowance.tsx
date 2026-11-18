@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { errorText } from "@/lib/messages";
-import type { allowanceSnapshot } from "@/lib/usage-policy";
+import type { readAllowance } from "@/lib/usage";
 import type { Language } from "@/lib/types";
-export type AllowanceSnapshot = ReturnType<typeof allowanceSnapshot>;
+export type AllowanceSnapshot = Awaited<ReturnType<typeof readAllowance>>;
 export default function Allowance({
   language,
   onCode,
@@ -14,11 +14,19 @@ export default function Allowance({
   onCode: (required: boolean) => void;
   onBlocked: (blocked: boolean) => void;
 }) {
-  const [usage, setUsage] = useState<AllowanceSnapshot | null>(null);
-  const [busy, setBusy] = useState(true);
-  const [paused, setPaused] = useState(false);
+  const [usage, setUsage] = useState<AllowanceSnapshot | null>(null),
+    [busy, setBusy] = useState(true),
+    [paused, setPaused] = useState(false);
   const es = language === "es",
     t = (a: string, b: string) => (es ? b : a);
+  const date = (value: string) =>
+    new Date(value).toLocaleString(es ? "es" : "en", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
   async function refresh() {
     setBusy(true);
     onBlocked(true);
@@ -28,11 +36,11 @@ export default function Allowance({
       const data = await r.json();
       setUsage(data.allowance);
       setPaused(!data.ready);
-      onBlocked(!data.ready || Boolean(data.allowance?.code));
+      onBlocked(!data.ready || !data.allowance || Boolean(data.allowance.code));
       onCode(Boolean(data.requiresCode));
     } catch {
       setUsage(null);
-      onBlocked(false);
+      onBlocked(true);
     } finally {
       setBusy(false);
     }
@@ -47,7 +55,7 @@ export default function Allowance({
     >
       <div className="allowance-heading">
         <ShieldCheck size={21} />
-        <strong>{t("Before you start", "Antes de empezar")}</strong>
+        <strong>{t("Your five reviews", "Tus cinco análisis")}</strong>
         <button
           type="button"
           className="text-button"
@@ -59,76 +67,73 @@ export default function Allowance({
           {t("Check", "Consultar")}
         </button>
       </div>
-      {paused && <p role="status">{errorText("review_paused", language)}</p>}
       {busy && !usage ? (
-        <p>
-          {t(
-            "Checking the available review allowance…",
-            "Comprobando los análisis disponibles…",
-          )}
-        </p>
+        <p>{t("Checking your allowance…", "Comprobando tu límite…")}</p>
       ) : !usage ? (
-        <p>
+        <p role="status">
           {t(
-            "The live allowance could not be loaded. Clovo will check it again before any AI work starts.",
-            "No se pudo cargar el límite actual. Clovo lo comprobará antes de iniciar la IA.",
+            "We couldn’t check your allowance. Press Check before starting; no AI work has started.",
+            "No pudimos comprobar tu límite. Pulsa Consultar antes de empezar; no se ha iniciado la IA.",
           )}
         </p>
       ) : (
         <>
-          {usage.code ? (
-            <p role="status">{errorText(usage.code, language)}</p>
-          ) : (
-            <div className="allowance-stats">
-              <div>
-                <strong>
-                  {Math.min(
-                    usage.networkRemaining,
-                    usage.dailyRemaining,
-                    usage.monthlyRemaining,
-                  )}
-                </strong>
-                <span>
-                  {t(
-                    "starts available on this Wi-Fi",
-                    "inicios disponibles en esta red",
-                  )}
-                </span>
-              </div>
-              <div>
-                <strong>{usage.reviewsRemaining}</strong>
-                <span>
-                  {t(
-                    "completed reviews remaining today",
-                    "análisis completos restantes hoy",
-                  )}
-                </span>
-              </div>
+          <div className="allowance-stats">
+            <div>
+              <strong>{usage.reviewsRemaining}</strong>
+              <span>
+                {t(
+                  "of 5 completed reviews remaining",
+                  "de 5 análisis completos disponibles",
+                )}
+              </span>
+            </div>
+            <div>
+              <strong>5h</strong>
+              <span>{t("per review window", "por periodo de análisis")}</span>
+            </div>
+          </div>
+          <p>
+            {usage.personalResetAt
+              ? `${t("Your next 5 reviews: ", "Tus próximos 5 análisis: ")}${date(usage.personalResetAt)}.`
+              : t(
+                  "Your five-hour window starts when you begin a review.",
+                  "Tu periodo de cinco horas empieza al iniciar un análisis.",
+                )}
+          </p>
+          {usage.personalCode && (
+            <p role="status">{errorText(usage.personalCode, language)}</p>
+          )}
+          {usage.serviceCode && (
+            <div className="service-availability" role="status">
+              <strong>
+                {t(
+                  "Service availability — separate from your five reviews",
+                  "Disponibilidad del servicio — independiente de tus cinco análisis",
+                )}
+              </strong>
+              <p>{errorText(usage.serviceCode, language)}</p>
+              {usage.serviceResetAt && (
+                <p>
+                  {t("Check again after: ", "Vuelve a consultar después de: ")}
+                  {date(usage.serviceResetAt)}.
+                </p>
+              )}
             </div>
           )}
-          <p>
-            {t("Next reset: ", "Próximo reinicio: ")}
-            {new Date(usage.resetAt).toLocaleString(es ? "es" : "en", {
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-              timeZoneName: "short",
-            })}
-            .
-          </p>
         </>
       )}
+      {paused && <p role="status">{errorText("review_paused", language)}</p>}
       <p>
         {t(
-          "A failed or clarification-only run is not a completed review. Each network has up to 3 starts for 2 completed reviews a day. Everyone shares Clovo’s budget of 5 starts a day and 20 a month. Shared Wi-Fi shares this limit.",
-          "Un análisis fallido o que solo pide aclaraciones no cuenta como completo. Cada red tiene hasta 3 inicios para 2 análisis completos al día. Todo Clovo comparte 5 inicios al día y 20 al mes. Un Wi-Fi compartido tiene el mismo límite.",
+          "Only completed reports use one of your five reviews. Failed, cancelled and clarification-only attempts do not. Your allowance is tied to this browser, so people sharing your Wi-Fi have separate review counts.",
+          "Solo los informes completos consumen uno de tus cinco análisis. Los fallos, cancelaciones y solicitudes de aclaración no cuentan. El límite corresponde a este navegador; quienes comparten tu Wi-Fi tienen contadores separados.",
         )}
       </p>
       <p className="allowance-footnote">
         {t(
-          "Availability can change while other people use Clovo. A blocked request makes no AI calls.",
-          "La disponibilidad puede cambiar mientras otras personas usan Clovo. Una solicitud bloqueada no llama a la IA.",
+          "Clovo also has a shared spending ceiling of 20 review attempts per month. Failed attempts can still cost money, so they use that separate service budget. A service pause is not a claim that you used five reviews.",
+          "Clovo también tiene un presupuesto compartido de 20 intentos al mes. Los intentos fallidos pueden costar dinero y consumen ese presupuesto independiente. Una pausa del servicio no significa que hayas usado cinco análisis.",
         )}
       </p>
     </section>

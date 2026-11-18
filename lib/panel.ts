@@ -1,3 +1,4 @@
+import { ModelError } from "./model-error.ts";
 import type { PanelProfile, Persona } from "./types.ts";
 export const PANEL_SIZE = 5;
 export const PANEL_LENSES = [
@@ -21,9 +22,7 @@ export function checkPanelCoverage(profiles: PanelProfile[]) {
     new Set(profiles.map((p) => p.name.trim().toLowerCase())).size !==
       PANEL_SIZE
   )
-    throw new Error(
-      "The panel did not provide five distinct research perspectives.",
-    );
+    throw new ModelError("panel_invalid");
   return [...profiles].sort(
     (a, b) => PANEL_LENSES.indexOf(a.lens) - PANEL_LENSES.indexOf(b.lens),
   );

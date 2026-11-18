@@ -221,7 +221,13 @@ export type AnalysisEvent =
     }
   | { type: "result"; report: Report }
   | { type: "clarify"; questions: string[] }
-  | { type: "error"; message: string; code?: string };
+  | {
+      type: "error";
+      message: string;
+      code?: string;
+      reference?: string;
+      agent?: AgentId;
+    };
 export type Study = {
   id: string;
   name: string;

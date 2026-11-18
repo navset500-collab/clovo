@@ -42,7 +42,7 @@ import {
 } from "./ReviewDepth";
 import { EvidenceBadges, EvidenceDrawer, EvidenceSummary } from "./Evidence";
 import { prepareFile } from "@/lib/files";
-import { errorText } from "@/lib/messages";
+import { errorText, errorHeading, reviewErrorCode } from "@/lib/messages";
 import { reportMarkdown } from "@/lib/export";
 const blank: ProjectInput = {
   name: "",
@@ -72,6 +72,10 @@ export default function Studio() {
     [filesBusy, setFilesBusy] = useState(false),
     [error, setError] = useState(""),
     [errorReset, setErrorReset] = useState<string | undefined>(),
+    [failureDetail, setFailureDetail] = useState<{
+      reference?: string;
+      agent?: AgentId;
+    } | null>(null),
     [status, setStatus] = useState<Partial<Record<AgentId, AgentStatus>>>({}),
     [traces, setTraces] = useState<Partial<Record<AgentId, AgentTrace>>>({}),
     [panel, setPanel] = useState<Persona[]>([]),
@@ -189,6 +193,7 @@ export default function Studio() {
     setDraft(input);
     setQuestions([]);
     setErrorReset(undefined);
+    setFailureDetail(null);
     setError("");
     setForm(false);
     setRunReady(false);
@@ -269,9 +274,10 @@ export default function Studio() {
           setPage("home");
           setForm(true);
           finished = true;
-        } else if (event.type === "error")
+        } else if (event.type === "error") {
+          setFailureDetail({ reference: event.reference, agent: event.agent });
           throw new Error(event.code || event.message);
-        else if (event.type === "result") {
+        } else if (event.type === "result") {
           const result = {
             input: { ...input, accessCode: undefined, language },
             report: event.report,
@@ -315,10 +321,10 @@ export default function Studio() {
         lines.forEach(handle);
       }
       if (buffer.trim()) handle(buffer);
-      if (!finished) throw new Error("review_failed");
+      if (!finished) throw new Error("stream_interrupted");
     } catch (e) {
       setError(
-        controller.signal.aborted ? "review_cancelled" : (e as Error).message,
+        controller.signal.aborted ? "review_cancelled" : reviewErrorCode(e),
       );
       setPage("home");
     } finally {
@@ -417,13 +423,20 @@ export default function Studio() {
             {error && (
               <div className="error page-error" role="alert">
                 <div>
-                  <strong>
-                    {t(
-                      "Your review hasn’t finished.",
-                      "Tu análisis no se completó.",
-                    )}
-                  </strong>
+                  <strong>{errorHeading(error, language)}</strong>
                   <p>{errorText(error, language)}</p>
+                  {failureDetail?.agent && (
+                    <p>
+                      {t("Stopped at: ", "Se detuvo en: ")}
+                      {AGENTS.find((a) => a.id === failureDetail.agent)?.name}
+                    </p>
+                  )}
+                  {failureDetail?.reference && (
+                    <p>
+                      {t("Support reference: ", "Referencia: ")}
+                      {failureDetail.reference}
+                    </p>
+                  )}
                   {errorReset && (
                     <p>
                       {t("Resets: ", "Se reinicia: ")}

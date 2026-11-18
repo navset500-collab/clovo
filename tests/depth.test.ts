@@ -234,7 +234,7 @@ test("five persona calls fit within the previous per-review maximum token envelo
   assert.equal(USAGE_LIMITS.modelCalls, 6 + PANEL_SIZE + 1);
   assert.ok(USAGE_LIMITS.modelCalls * USAGE_LIMITS.inputTokens <= 9 * 32000);
   assert.ok(USAGE_LIMITS.modelCalls * USAGE_LIMITS.outputTokens <= 9 * 6500);
-  assert.equal(USAGE_LIMITS.daily, 5);
+  assert.ok(USAGE_LIMITS.daily <= USAGE_LIMITS.monthly);
   assert.equal(USAGE_LIMITS.monthly, 20);
 });
 

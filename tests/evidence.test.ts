@@ -341,23 +341,21 @@ test("shared quotas stop parallel networks and persist across new request object
   assert.throws(() => reserveUsage(s, policy, "a", "run6", now), /network/);
 });
 test("global daily and monthly caps cannot be bypassed by new IPs or day rollover", () => {
+  const policy = { ...USAGE_LIMITS, daily: 5 };
   let s = null;
   for (let i = 0; i < 5; i++) {
     s = reserveUsage(
       s,
-      { ...USAGE_LIMITS, concurrent: undefined },
+      { ...policy, concurrent: undefined },
       String(i),
       String(i),
       now,
     );
   }
-  assert.throws(
-    () => reserveUsage(s, USAGE_LIMITS, "new", "new", now),
-    /daily/,
-  );
+  assert.throws(() => reserveUsage(s, policy, "new", "new", now), /daily/);
   s!.total = 20;
   assert.throws(
-    () => reserveUsage(s, USAGE_LIMITS, "new", "new", now + 86400000),
+    () => reserveUsage(s, policy, "new", "new", now + 86400000),
     /monthly/,
   );
 });

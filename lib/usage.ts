@@ -2,6 +2,12 @@ import { createHmac, randomUUID } from "node:crypto";
 import { get, put, BlobPreconditionFailedError } from "@vercel/blob";
 import { z } from "zod";
 import {
+  reserveVisitor,
+  settleVisitor,
+  visitorSnapshot,
+  type VisitorWindow,
+} from "./visitor-quota.ts";
+import {
   reserveUsage,
   settleUsage,
   allowanceSnapshot,
@@ -13,6 +19,7 @@ import {
 export { UsageError } from "./usage-policy.ts";
 const counter = z.number().int().nonnegative();
 const stateSchema = z.object({
+  providerPauseUntil: counter.optional(),
   version: z.literal(1),
   total: counter,
   day: z.string(),
@@ -31,9 +38,11 @@ const policies: Record<string, QuotaPolicy> = {
   "study-read": { daily: 1500, monthly: 12000, perNetworkDaily: 150 },
   "study-delete": { daily: 100, monthly: 500, perNetworkDaily: 10 },
 };
-async function update(
+async function updateRecord<T>(
   path: string,
-  transform: (s: UsageState | null) => UsageState,
+  schema: z.ZodType<T>,
+  transform: (s: T | null) => T,
+  ttlDays = 40,
 ) {
   if (!process.env.BLOB_READ_WRITE_TOKEN)
     throw new UsageError(
@@ -53,7 +62,7 @@ async function update(
       if (previous && !previous.blob.etag)
         throw new Error("Missing usage version");
       const state = previous
-        ? stateSchema.parse(await new Response(previous.stream).json())
+        ? schema.parse(await new Response(previous.stream).json())
         : null;
       const next = transform(state);
       try {
@@ -65,10 +74,10 @@ async function update(
             : { allowOverwrite: false }),
           contentType: "application/json",
           cacheControlMaxAge: 60,
-          ttlDays: 40,
+          ttlDays,
           abortSignal: AbortSignal.timeout(8000),
         });
-        return;
+        return next;
       } catch (e) {
         // A race must re-read the counter. Never overwrite it unconditionally.
         if (
@@ -94,10 +103,24 @@ async function update(
     "quota_busy",
   );
 }
+const visitorSchema = z.object({
+  startedAt: counter,
+  completed: counter.max(5),
+  active: z.object({ id: z.string(), expires: counter }).nullable(),
+});
+const update = (
+  path: string,
+  transform: (s: UsageState | null) => UsageState,
+) => updateRecord(path, stateSchema, transform);
+const updateVisitor = (
+  path: string,
+  transform: (s: VisitorWindow | null) => VisitorWindow,
+) => updateRecord(path, visitorSchema, transform, 2);
 export async function reserve(
   request: Request,
   bucket: keyof typeof policies,
   resource?: string,
+  visitorKey?: string,
 ) {
   const now = Date.now(),
     day = new Date(now).toISOString().slice(0, 10),
@@ -119,11 +142,30 @@ export async function reserve(
     process.env.VERCEL_ENV === "production" ? "production" : "development";
   const path = `usage/v1/${scope}/${month}/${bucket}.json`,
     id = randomUUID();
+  const visitorPath =
+    bucket === "analysis" && visitorKey
+      ? `usage/v2/${scope}/visitors/${visitorKey}.json`
+      : undefined;
+  if (bucket === "analysis" && !visitorPath)
+    throw new UsageError("Browser allowance unavailable.", 503, 60);
+  if (visitorPath)
+    await updateVisitor(visitorPath, (s) => reserveVisitor(s, id, now));
   try {
     await update(path, (s) =>
       reserveUsage(s, policies[bucket], network, id, now, resource),
     );
   } catch (e) {
+    if (visitorPath) {
+      try {
+        await updateVisitor(visitorPath, (s) =>
+          s
+            ? settleVisitor(s, id, false)
+            : { startedAt: now, completed: 0, active: null },
+        );
+      } catch {
+        /* Lease expires without recording a completed review. */
+      }
+    }
     if (
       bucket !== "analysis" &&
       e instanceof UsageError &&
@@ -144,16 +186,32 @@ export async function reserve(
       ),
     );
   }
-  return async (completed = false) => {
+  let visitorSettled = false;
+  return async (completed = false, failureCode = "") => {
+    // Persist personal completion BEFORE delivering a report. If this write fails,
+    // do not claim a completed report or silently lose the five-review counter.
+    if (visitorPath && !visitorSettled) {
+      await updateVisitor(visitorPath, (s) => {
+        if (!s) throw new Error("Missing visitor reservation");
+        return settleVisitor(s, id, completed);
+      });
+      visitorSettled = true;
+    }
+    if (completed) return; // Deliver the report before best-effort shared lease cleanup.
     if (!policies[bucket].concurrent) return;
-    // Refund no cost reservations, but count completed reports separately.
     try {
       await update(path, (s) => {
         if (!s) throw new Error("Missing usage record");
-        return settleUsage(s, id, day, completed);
+        const next = settleUsage(s, id, day, false);
+        if (["provider_unavailable", "provider_quota"].includes(failureCode))
+          next.providerPauseUntil = Math.max(
+            next.providerPauseUntil || 0,
+            Date.now() + 120000,
+          );
+        return next;
       });
     } catch {
-      /* Expiring lease remains conservative if storage fails. */
+      /* Keep the cost reservation; the concurrency lease expires. */
     }
   };
 }
@@ -177,7 +235,7 @@ export function usageResponse(error: unknown) {
 let snapshotCache:
   { path: string; state: UsageState | null; checkedAt: number } | undefined;
 let snapshotPending: Promise<void> | undefined;
-export async function readAllowance(request: Request) {
+export async function readAllowance(request: Request, visitorKey: string) {
   const secret = process.env.BLOB_READ_WRITE_TOKEN;
   if (!secret) throw new UsageError("Usage unavailable.");
   const now = Date.now(),
@@ -214,8 +272,28 @@ export async function readAllowance(request: Request) {
   const network = createHmac("sha256", secret)
     .update(`${day}:${address}`)
     .digest("hex");
+  const record = await get(`usage/v2/${scope}/visitors/${visitorKey}.json`, {
+    access: "private",
+    useCache: false,
+    abortSignal: AbortSignal.timeout(8000),
+  });
+  if (record && record.statusCode !== 200)
+    throw new Error("Visitor allowance unavailable");
+  const visitor = record
+    ? visitorSchema.parse(await new Response(record.stream).json())
+    : null;
+  const personal = visitorSnapshot(visitor, now);
+  const shared = allowanceSnapshot(snapshotCache!.state, network, now);
   return {
-    ...allowanceSnapshot(snapshotCache!.state, network, now),
-    checkedAt: snapshotCache!.checkedAt,
+    ...personal,
+    code: personal.personalCode || shared.code,
+    serviceCode: shared.code,
+    serviceResetAt: shared.code ? shared.resetAt : null,
+    resetAt: personal.personalCode
+      ? personal.personalResetAt
+      : shared.code
+        ? shared.resetAt
+        : personal.personalResetAt,
+    checkedAt: Date.now(),
   };
 }

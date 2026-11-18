@@ -1,9 +1,8 @@
 // Public limits; credentials and counters live only on the server.
 export const USAGE_LIMITS = {
-  daily: 5,
+  daily: 20,
   monthly: 20,
-  perNetworkDaily: 3,
-  perNetworkCompletedDaily: 2,
+  perNetworkDaily: 20,
   concurrent: 2,
   modelCalls: 12,
   inputTokens: 24000,
@@ -18,6 +17,7 @@ export type QuotaPolicy = {
   perResource?: number;
 };
 export type UsageState = {
+  providerPauseUntil?: number;
   version: 1;
   total: number;
   day: string;
@@ -137,6 +137,14 @@ export function reserveUsage(
       30,
       "team_busy",
     );
+  if (policy.concurrent && (next.providerPauseUntil || 0) > now)
+    throw new UsageError(
+      "The AI service is temporarily unavailable.",
+      503,
+      Math.ceil((next.providerPauseUntil! - now) / 1000),
+      "service_provider_unavailable",
+      new Date(next.providerPauseUntil!).toISOString(),
+    );
   next.total++;
   next.daily++;
   next.networks[network] = (next.networks[network] || 0) + 1;
@@ -184,19 +192,18 @@ export function allowanceSnapshot(
     USAGE_LIMITS.daily - (sameDay ? state.daily : 0),
   );
   const networkRemaining = Math.max(0, USAGE_LIMITS.perNetworkDaily - starts);
-  const reviewsRemaining = Math.max(
-    0,
-    USAGE_LIMITS.perNetworkCompletedDaily - completed,
-  );
+  const reviewsRemaining = Math.max(0, 5 - completed);
   if (!monthlyRemaining) code = "global_monthly";
   else if (!dailyRemaining) code = "global_daily";
-  else if (!reviewsRemaining) code = "network_completed";
-  else if (!networkRemaining) code = "network_daily";
+  else if ((state?.providerPauseUntil || 0) > now)
+    code = "service_provider_unavailable";
   const date = new Date(now);
   const resetAt =
     code === "global_monthly"
       ? Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1)
-      : Date.parse(day + "T00:00:00.000Z") + 86400000;
+      : code === "service_provider_unavailable"
+        ? state!.providerPauseUntil!
+        : Date.parse(day + "T00:00:00.000Z") + 86400000;
   return {
     code,
     monthlyRemaining,
