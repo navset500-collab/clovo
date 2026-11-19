@@ -1,10 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { errorText } from "@/lib/messages";
-import type { readAllowance } from "@/lib/usage";
+import {
+  checkAllowance,
+  AllowanceCheckError,
+  type AllowanceSnapshot,
+} from "@/lib/allowance-status";
 import type { Language } from "@/lib/types";
-export type AllowanceSnapshot = Awaited<ReturnType<typeof readAllowance>>;
+export type { AllowanceSnapshot } from "@/lib/allowance-status";
 export default function Allowance({
   language,
   onCode,
@@ -16,7 +20,10 @@ export default function Allowance({
 }) {
   const [usage, setUsage] = useState<AllowanceSnapshot | null>(null),
     [busy, setBusy] = useState(true),
-    [paused, setPaused] = useState(false);
+    [paused, setPaused] = useState(false),
+    [retrying, setRetrying] = useState(false),
+    [failure, setFailure] = useState("");
+  const pending = useRef<AbortController | null>(null);
   const es = language === "es",
     t = (a: string, b: string) => (es ? b : a);
   const date = (value: string) =>
@@ -28,25 +35,40 @@ export default function Allowance({
       timeZoneName: "short",
     });
   async function refresh() {
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
     setBusy(true);
+    setFailure("");
+    setRetrying(false);
+    setUsage(null);
+    setPaused(false);
     onBlocked(true);
     try {
-      const r = await fetch("/api/status", { cache: "no-store" });
-      if (!r.ok) throw new Error();
-      const data = await r.json();
+      const data = await checkAllowance(controller.signal, () =>
+        setRetrying(true),
+      );
+      if (controller.signal.aborted) return;
       setUsage(data.allowance);
       setPaused(!data.ready);
       onBlocked(!data.ready || !data.allowance || Boolean(data.allowance.code));
       onCode(Boolean(data.requiresCode));
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted) return;
       setUsage(null);
+      setFailure(
+        error instanceof AllowanceCheckError
+          ? error.code
+          : "allowance_check_unavailable",
+      );
       onBlocked(true);
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
     }
   }
   useEffect(() => {
     void refresh();
+    return () => pending.current?.abort();
   }, []);
   return (
     <section
@@ -54,8 +76,10 @@ export default function Allowance({
       aria-label={t("Review allowance", "Límite de análisis")}
     >
       <div className="allowance-heading">
-        <ShieldCheck size={21} />
-        <strong>{t("Your five reviews", "Tus cinco análisis")}</strong>
+        <ShieldCheck size={21} aria-hidden="true" />
+        <strong>
+          {t("Review availability", "Disponibilidad de análisis")}
+        </strong>
         <button
           type="button"
           className="text-button"
@@ -63,20 +87,29 @@ export default function Allowance({
           onClick={refresh}
           aria-label={t("Refresh allowance", "Actualizar límite")}
         >
-          <RefreshCw size={17} className={busy ? "spin" : ""} />
-          {t("Check", "Consultar")}
+          <RefreshCw
+            size={17}
+            aria-hidden="true"
+            className={busy ? "spin" : ""}
+          />
+          {t("Check again", "Volver a consultar")}
         </button>
       </div>
       {busy && !usage ? (
-        <p>{t("Checking your allowance…", "Comprobando tu límite…")}</p>
-      ) : !usage ? (
         <p role="status">
-          {t(
-            "We couldn’t check your allowance. Press Check before starting; no AI work has started.",
-            "No pudimos comprobar tu límite. Pulsa Consultar antes de empezar; no se ha iniciado la IA.",
-          )}
+          {retrying
+            ? t(
+                "The first check didn’t connect. Trying once more…",
+                "La primera consulta no se conectó. Intentando una vez más…",
+              )
+            : t(
+                "Checking your available reviews…",
+                "Comprobando tus análisis disponibles…",
+              )}
         </p>
-      ) : (
+      ) : failure ? (
+        <p role="status">{errorText(failure, language)}</p>
+      ) : usage ? (
         <>
           <div className="allowance-stats">
             <div>
@@ -122,7 +155,7 @@ export default function Allowance({
             </div>
           )}
         </>
-      )}
+      ) : null}
       {paused && <p role="status">{errorText("review_paused", language)}</p>}
       <p>
         {t(
@@ -132,8 +165,8 @@ export default function Allowance({
       </p>
       <p className="allowance-footnote">
         {t(
-          "Clovo also has a shared spending ceiling of 20 review attempts per month. Failed attempts can still cost money, so they use that separate service budget. A service pause is not a claim that you used five reviews.",
-          "Clovo también tiene un presupuesto compartido de 20 intentos al mes. Los intentos fallidos pueden costar dinero y consumen ese presupuesto independiente. Una pausa del servicio no significa que hayas usado cinco análisis.",
+          "Clovo runs on free services. To conserve their quotas, the app allows 20 review attempts per month across all visitors. Failed attempts may use those resources, but do not use one of your five completed reviews. Checking availability uses no AI and does not count as an attempt.",
+          "Clovo utiliza servicios gratuitos. Para conservar sus cuotas, la aplicación permite 20 intentos de análisis al mes entre todos los visitantes. Los intentos fallidos pueden consumir esos recursos, pero no uno de tus cinco análisis completos. Consultar la disponibilidad no usa IA ni cuenta como intento.",
         )}
       </p>
     </section>

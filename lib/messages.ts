@@ -1,6 +1,14 @@
 // Keep error identifiers in state, then translate at render time. Changing the
 // language must also translate errors that were received before the switch.
 const messages: Record<string, [string, string]> = {
+  allowance_check_unavailable: [
+    "Clovo couldn’t reach the review counter. This does not mean you used five reviews. Keep your brief here and select Check again in a moment. No AI has started and no review was used.",
+    "Clovo no pudo consultar el contador de análisis. Esto no significa que hayas usado cinco análisis. Conserva tu texto aquí y pulsa Volver a consultar en un momento. No se inició la IA ni se consumió un análisis.",
+  ],
+  allowance_check_limited: [
+    "Too many availability checks were made on this connection. Please try again later. No AI has started; this is not your five-review limit.",
+    "Se hicieron demasiadas consultas de disponibilidad desde esta conexión. Vuelve a intentarlo más tarde. No se inició la IA; este no es tu límite de cinco análisis.",
+  ],
   completion_save_failed: [
     "Clovo prepared the analysis but could not confirm its completed-review record. Keep your text in this tab and check availability before retrying. This is a storage problem, not feedback on your idea.",
     "Clovo preparó el análisis pero no pudo confirmar su registro. Conserva el texto en esta pestaña y consulta la disponibilidad antes de reintentar. Es un problema de almacenamiento, no una evaluación de tu idea.",
