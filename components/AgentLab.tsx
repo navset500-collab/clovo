@@ -36,8 +36,8 @@ export const AGENTS: {
     color: "#b9a1ee",
     role: ["brings five perspectives", "aporta cinco perspectivas"],
     job: [
-      "Runs five independent AI personas, tailored to your audience.",
-      "Ejecuta cinco perfiles de IA independientes, adaptados a tu público.",
+      "Explores five distinct fictional perspectives, tailored to your audience.",
+      "Explora cinco perspectivas ficticias distintas, adaptadas a tu público.",
     ],
   },
   {

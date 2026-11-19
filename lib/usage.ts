@@ -32,7 +32,7 @@ const stateSchema = z.object({
   ),
 });
 const policies: Record<string, QuotaPolicy> = {
-  analysis: USAGE_LIMITS,
+  analysis: { ...USAGE_LIMITS, perResource: 1 },
   "study-create": { daily: 10, monthly: 30, perNetworkDaily: 2 },
   feedback: { daily: 200, monthly: 1000, perNetworkDaily: 10, perResource: 50 },
   "study-read": { daily: 1500, monthly: 12000, perNetworkDaily: 150 },
@@ -166,6 +166,12 @@ export async function reserve(
         /* Lease expires without recording a completed review. */
       }
     }
+    if (
+      bucket === "analysis" &&
+      e instanceof UsageError &&
+      e.code === "study_limit"
+    )
+      e.code = "recovery_used";
     if (
       bucket !== "analysis" &&
       e instanceof UsageError &&

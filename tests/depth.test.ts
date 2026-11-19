@@ -230,8 +230,8 @@ test("a specific next step survives score calculation without raising unsupporte
     "Describe a recent missed pickup.",
   );
 });
-test("five persona calls fit within the previous per-review maximum token envelope", () => {
-  assert.equal(USAGE_LIMITS.modelCalls, 6 + PANEL_SIZE + 1);
+test("batched perspectives and recovery retain the previous maximum token envelope", () => {
+  assert.equal(USAGE_LIMITS.modelCalls, 12);
   assert.ok(USAGE_LIMITS.modelCalls * USAGE_LIMITS.inputTokens <= 9 * 32000);
   assert.ok(USAGE_LIMITS.modelCalls * USAGE_LIMITS.outputTokens <= 9 * 6500);
   assert.ok(USAGE_LIMITS.daily <= USAGE_LIMITS.monthly);

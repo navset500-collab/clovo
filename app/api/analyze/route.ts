@@ -4,7 +4,7 @@ import {
   briefSchema,
   marketSchema,
   panelPlanSchema,
-  personaSchema,
+  panelBatchSchema,
   critiqueSchema,
   planSchema,
   experimentSchema,
@@ -13,8 +13,9 @@ import {
 import { makeEvidenceSources, groundConcerns, linkPlans } from "@/lib/evidence";
 import { scoreReadiness } from "@/lib/scoring";
 import { matchResearchCitations } from "@/lib/research";
-import { PANEL_SIZE, checkPanelCoverage, collectPanel } from "@/lib/panel";
+import { PANEL_SIZE, checkPanelCoverage } from "@/lib/panel";
 import { ModelError } from "@/lib/model-error";
+import { openRecovery, sealRecovery, type Recovery } from "@/lib/recovery";
 import { REVIEW_METHOD } from "@/lib/review-method";
 import { needsClarification } from "@/lib/intake";
 import { auditResearch } from "@/lib/research";
@@ -84,9 +85,29 @@ export async function POST(request: Request) {
   const visitor = process.env.BLOB_READ_WRITE_TOKEN
     ? visitorIdentity(request, process.env.BLOB_READ_WRITE_TOKEN)
     : null;
+  let recovery: Recovery | undefined;
+  if (input.recoveryToken) {
+    try {
+      if (!visitor || !process.env.BLOB_READ_WRITE_TOKEN)
+        throw new ModelError("recovery_invalid");
+      recovery = openRecovery(
+        input.recoveryToken,
+        input,
+        visitor.key,
+        process.env.BLOB_READ_WRITE_TOKEN,
+      );
+    } catch {
+      return Response.json({ code: "recovery_invalid" }, { status: 400 });
+    }
+  }
   let release: (completed?: boolean, failureCode?: string) => Promise<void>;
   try {
-    release = await reserve(request, "analysis", undefined, visitor?.key);
+    release = await reserve(
+      request,
+      "analysis",
+      recovery ? `resume:${recovery.id}` : undefined,
+      visitor?.key,
+    );
   } catch (e) {
     const response = usageResponse(e);
     if (visitor?.cookie) response.headers.set("Set-Cookie", visitor.cookie);
@@ -108,6 +129,7 @@ export async function POST(request: Request) {
       kind: f.kind,
     })),
     accessCode: undefined,
+    recoveryToken: undefined,
   });
   const encoder = new TextEncoder();
   const started = Date.now();
@@ -115,7 +137,7 @@ export async function POST(request: Request) {
   let completed = false;
   let failureCode = "";
   let failureAgent: AgentId | undefined;
-  const reviewId = crypto.randomUUID();
+  const reviewId = recovery?.reviewId || crypto.randomUUID();
   const stream = new ReadableStream({
     async start(controller) {
       const runEvents: RunEvent[] = [];
@@ -182,8 +204,11 @@ export async function POST(request: Request) {
             ? "Un único reintento automático dentro del presupuesto fijo de este análisis."
             : "One automatic retry within this review’s fixed attempt budget.",
         );
-      });
-      const traces: Partial<Record<AgentId, AgentTrace>> = {};
+      }, recovery?.calls || 0);
+      const traces: Partial<Record<AgentId, AgentTrace>> = {
+        ...recovery?.traces,
+      };
+      const stages: Partial<Record<AgentId, unknown>> = { ...recovery?.stages };
       async function run<T>(
         id: AgentId,
         info: string,
@@ -191,10 +216,30 @@ export async function POST(request: Request) {
         trace: (v: T) => Omit<AgentTrace, "durationMs">,
       ) {
         const at = Date.now();
+        if (Object.prototype.hasOwnProperty.call(stages, id) && traces[id]) {
+          work(
+            id,
+            lang === "Spanish"
+              ? "Resultado recuperado"
+              : "Completed work restored",
+            lang === "Spanish"
+              ? "Se conserva el resultado anterior; no se repite la llamada de IA."
+              : "Reusing the completed result; no new AI call for this agent.",
+          );
+          emit({
+            type: "agent",
+            agent: id,
+            status: "done",
+            message: traces[id]!.output,
+            trace: traces[id],
+          });
+          return stages[id] as T;
+        }
         emit({ type: "agent", agent: id, status: "running", message: info });
         try {
           const value = await fn();
           traces[id] = { ...trace(value), durationMs: Date.now() - at };
+          stages[id] = value;
           emit({
             type: "agent",
             agent: id,
@@ -358,39 +403,44 @@ export async function POST(request: Request) {
               const profiles = checkPanelCoverage(
                 alignFictionalProfiles(plan.profiles, input.audience),
               );
-              return collectPanel(
-                profiles,
-                async (role, index) => {
-                  emit({
-                    type: "panel-status",
-                    at: Date.now() - started,
-                    index,
-                    profile: role,
-                    status: "running",
-                    message:
-                      lang === "Spanish"
-                        ? `Perspectiva ${index + 1}: evaluando el proyecto.`
-                        : `Perspective ${index + 1}: evaluating the project.`,
-                  });
-                  const result = await askModel(
-                    locale +
-                      `You are Juno's simulated tester ${index + 1}. Include nonUseReason: the strongest specific reason you might never adopt this even if it works, and suggestedChange: one focused adjustment that would address it. Your lens is ${role.lens}; do not mirror the objections of the other profiles. Your age range and context are fictional scenario parameters, never research findings.  You are FICTIONAL, not a real respondent. Your assigned identity and focus: ${JSON.stringify(role)}. Other profiles for comparison: ${JSON.stringify(profiles.filter((_, i) => i !== index))}. Stick to your assigned focus; do NOT repeat the other profiles’ main objection. Your name and identity MUST remain exactly as assigned. Keep identity and pronouns consistent. Prefer neutral or first-person wording; never infer identity from a name. If the audience is mothers, the persona must actually be a mother, not an unrelated male customer. These are fictional identities, not demographic evidence. Produce a concrete distinct name, role, situation, natural first-person reaction, useful part, point of friction, current workaround/alternative, whether you would try it, and condition needed. Do not claim actual use or measured behavior. Keep each field to 1-2 short sentences. Give specific constructive feedback; don't uniformly praise. Focus on your assigned perspective instead of repeating generic concerns. If interface details are not supplied, phrase usability friction as a conditional concern, never an observed failure. Do not invent tap counts, screen-reader failures, visual controls or actual use. A mobility limitation does not imply a visual impairment; keep the chosen access constraint consistent. Audience: ${input.audience}. Product: ${JSON.stringify(brief)}. Builder's focus: ${input.task}. Original description: ${input.description}. Every useful/friction/condition field must refer to a concrete aspect of this project, not a generic request for an intuitive UI.`,
-                    input.attachments,
-                    personaSchema,
-                    signal,
-                  );
+              for (const [index, role] of profiles.entries()) {
+                emit({
+                  type: "panel-status",
+                  at: Date.now() - started,
+                  index,
+                  profile: role,
+                  status: "running",
+                  message:
+                    lang === "Spanish"
+                      ? "Evaluando cinco perspectivas en una solicitud conjunta."
+                      : "Evaluating five distinct perspectives in one shared request.",
+                });
+              }
+              const batch = await askModel(
+                locale +
+                  `Evaluate these five FICTIONAL profiles as distinct scenario perspectives, not real research. Return exactly one persona for each profileIndex 0-4, preserving its assigned name, role and situation. Each must focus on its assigned lens, not repeat the others. Use one short sentence per response field, preferably under 180 characters. Include a concrete nonUseReason, suggestedChange, reaction, useful part, friction, current alternative, wouldTry and condition. Do not invent actual use, observations, statistics, UI controls, or demand. When details are missing frame friction as a conditional concern. Maintain the intended audience and consistent identities; do not infer pronouns from names. These perspectives are generated together, not independent interviews. Profiles: ${JSON.stringify(profiles)}. Audience:${input.audience}. Brief:${JSON.stringify(brief)}. Builder focus:${input.task}. Original description:${input.description}`,
+                input.attachments,
+                panelBatchSchema,
+                signal,
+              );
+              if (
+                new Set(batch.personas.map((p) => p.profileIndex)).size !==
+                PANEL_SIZE
+              )
+                throw new ModelError("panel_invalid");
+              const personas = batch.personas
+                .sort((a, b) => a.profileIndex - b.profileIndex)
+                .map((result) => {
+                  const index = result.profileIndex,
+                    role = profiles[index];
                   if (
                     contradictsAudience(
                       input.audience,
                       result.role + " " + result.situation,
                     )
                   )
-                    throw new Error(
-                      lang === "Spanish"
-                        ? "Un perfil no coincidió con el público indicado. Vuelve a intentarlo."
-                        : "A simulated profile did not match the specified audience. Please retry.",
-                    );
-                  const p = {
+                    throw new ModelError("panel_invalid");
+                  return {
                     ...result,
                     name: role.name,
                     role: role.role,
@@ -400,29 +450,18 @@ export async function POST(request: Request) {
                     lens: role.lens,
                     panelIndex: index,
                   };
-                  emit({ type: "panel", index, persona: p });
-                  emit({
-                    type: "panel-status",
-                    at: Date.now() - started,
-                    index,
-                    status: "done",
-                    message: p.reaction,
-                  });
-                  return p;
-                },
-                (index) =>
-                  emit({
-                    type: "panel-status",
-                    at: Date.now() - started,
-                    index,
-                    status: "error",
-                    message:
-                      lang === "Spanish"
-                        ? "Esta perspectiva no se pudo completar. No se inventó una respuesta."
-                        : "This perspective could not complete. No response was invented.",
-                  }),
-                signal,
-              );
+                });
+              for (const p of personas) {
+                emit({ type: "panel", index: p.panelIndex, persona: p });
+                emit({
+                  type: "panel-status",
+                  at: Date.now() - started,
+                  index: p.panelIndex,
+                  status: "done",
+                  message: p.reaction,
+                });
+              }
+              return { personas, unavailable: [] as number[] };
             },
             (v) => ({
               input: input.audience,
@@ -438,6 +477,10 @@ export async function POST(request: Request) {
           ),
         ]);
         const personas = panelResult.personas;
+        if (recovery?.stages.juno) {
+          for (const p of personas)
+            emit({ type: "panel", index: p.panelIndex, persona: p });
+        }
         work(
           "rook",
           lang === "Spanish"
@@ -580,6 +623,23 @@ export async function POST(request: Request) {
           agent: failureAgent,
           status: e instanceof ModelError ? e.status : undefined,
         });
+        if (
+          ![
+            "review_cancelled",
+            "completion_save_failed",
+            "model_budget",
+          ].includes(failureCode) &&
+          visitor &&
+          process.env.BLOB_READ_WRITE_TOKEN
+        ) {
+          const checkpoint = sealRecovery(
+            { reviewId, calls: askModel.callsUsed(), stages, traces },
+            input,
+            visitor.key,
+            process.env.BLOB_READ_WRITE_TOKEN,
+          );
+          if (checkpoint) emit({ type: "recovery", ...checkpoint });
+        }
         emit({
           type: "error",
           code: failureCode,

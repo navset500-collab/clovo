@@ -23,7 +23,7 @@ Start with a written idea of at least 50 words and a specific audience. Mira ask
 | Leo   | Produces prioritized changes with concrete acceptance checks      |
 | Vera  | Designs a neutral study for real people                           |
 
-The live workspace streams actual server events: agent starts, completed handoffs, and the five perspective calls as they return. It doesn't invent private reasoning or fake progress. All agents use the same Gemini base model with different roles; they are not six independently trained models.
+The live workspace streams actual server events: agent starts, completed handoffs, and the five perspective results when their shared request returns. It doesn't invent private reasoning or fake progress. All agents use the same Gemini base model with different roles; they are not six independently trained models.
 
 ## Ask: “Where did that feedback come from?”
 
@@ -49,7 +49,7 @@ Studies and responses use private Vercel Blob storage. Random invitation links a
 - Topic-specific web research with quote-matched sources
 - A transparent readiness-to-test rubric
 - Six-agent orchestration with a live activity feed
-- Five independently called AI personas
+- Five distinct fictional perspectives generated together after profile planning
 - Evidence-linked concerns and build priorities
 - No-login human feedback studies
 - English and Spanish UI and AI output
@@ -72,7 +72,7 @@ A separate **20-start monthly app limit across every visitor** conserves free se
 
 Private Blob counters use conditional ETag writes, fail closed when storage is unavailable, and retain the existing monthly spending history. Personal windows use separate records so a five-hour window does not accidentally reset at UTC midnight or month rollover. A successful personal completion is persisted before emitting the report; duplicate settlement does not double count. Visitor leases prevent simultaneous requests spending the last slot twice and expire after interruptions.
 
-A review can make at most **12 model attempts (11 planned calls and at most one shared retry)**, each preceded by a provider token count capped at **24,000 input tokens**; output is capped at **4,500 tokens per attempt**. Only a 503 provider-unavailable response can receive one automatic retry, after a short backoff, across the entire review. The retry consumes the same hard attempt budget; quota errors, timeouts and malformed outputs are not retried. There are no paid Google grounding calls. The approved model is `gemini-3.5-flash-lite`; changing it requires a code review of the limits. Two Tavily queries at most run per review, with free access unless you explicitly configure a key. Cancellation and a 150-second deadline abort remaining work. A request already received by a provider may still consume free quota after cancellation.
+A review can make at most **12 model attempts across an original review and its recovery chain (7 planned calls on a fresh run)**, each preceded by a provider token count capped at **24,000 input tokens**; output is capped at **4,500 tokens per attempt**. Only a 503 provider-unavailable response can receive one automatic retry, after a short backoff, per accepted request. The retry consumes the same hard attempt budget; quota errors, timeouts and malformed outputs are not retried. There are no paid Google grounding calls. The approved model is `gemini-3.5-flash-lite`; changing it requires a code review of the limits. Two Tavily queries at most run per review, with free access unless you explicitly configure a key. Cancellation and a 150-second deadline abort remaining work. A request already received by a provider may still consume free quota after cancellation.
 
 Set `ANALYSIS_ENABLED=false` and redeploy to pause all new reviews. Set `ANALYSIS_ACCESS_CODE` for optional invite-only access. Neither setting bypasses the shared caps. Limits live in `lib/usage-policy.ts`; lowering them applies immediately on deployment. Development and production use separate counters. Do not delete or reset the production ledger to “fix” a quota message.
 
@@ -139,7 +139,7 @@ Rook ranks failure modes and includes evidence that could weaken each criticism.
 
 The live research desk switches between workspaces as real updates arrive. It shows submitted search terms, retrieved source links, citation-check counts, panel profiles and completed outputs. Text reveal and slide animations present existing information; they do not simulate hidden reasoning or pretend to browse a prototype. Recorded replay makes no API calls, and reduced-motion preferences are respected.
 
-The five-person panel raises the maximum model-call count from 9 to 12 (including one bounded 503 retry) while reducing each call's maximum input/output. The theoretical per-review maxima change from 288,000 input / 58,500 output tokens to 288,000 input / 54,000 output tokens. This does not guarantee average cost is unchanged; it preserves the previous worst-case token envelope. The 20-start monthly ceiling and per-review token envelope remain unchanged; personal completion windows are described above.
+The panel retains five distinct viewpoints but evaluates them together after planning, reducing a full run from 11 to 7 model calls. These are correlated AI simulations, not independent respondents. The maximum remains 12 attempts and 288,000 input / 54,000 output tokens across a recovery chain. A failed review may return a signed checkpoint of completed stages; it is bound to the exact brief, language, files and anonymous browser, expires within 30 minutes and before monthly rollover, and can be consumed once using the atomic usage ledger. Each accepted continuation also consumes a shared start; personal usage increments only when a complete report is delivered. Completed stages are restored without fresh model calls. No paid fallback is configured.
 
 Provider overload handling follows [Google’s API error guidance](https://ai.google.dev/gemini-api/docs/generate-content/api-errors). Only the single bounded retry is automatic; the app never loops until a request succeeds. Safe diagnostics retain the category and status code, not provider response bodies or secrets.
 

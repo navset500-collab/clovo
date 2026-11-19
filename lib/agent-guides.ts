@@ -72,12 +72,12 @@ export const AGENT_GUIDES: Record<AgentId, Guide> = {
     ],
     steps: [
       [
-        "Runs five separate calls in parallel, each with a different point of view.",
+        "Plans five profiles, then evaluates their distinct viewpoints together in one AI request to conserve free quota.",
         "Varies relevant ages, resources, experience and circumstances within the actual audience; demographic stereotypes are not evidence.",
         "Explores useful outcomes, obstacles, current alternatives and conditions for trying it.",
       ],
       [
-        "Ejecuta cinco llamadas paralelas con puntos de vista distintos.",
+        "Planifica cinco perfiles y evalúa sus perspectivas en una sola solicitud de IA para conservar la cuota gratuita.",
         "Varía edades, recursos, experiencia y situaciones relevantes dentro del público; los estereotipos no son evidencia.",
         "Explora resultados útiles, obstáculos, alternativas y condiciones de uso.",
       ],

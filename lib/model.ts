@@ -74,9 +74,12 @@ async function generate(
     );
   return res.json();
 }
-export function createModelSession(onRetry?: (schema: z.ZodType) => void) {
-  const run = createModelBudget(USAGE_LIMITS.modelCalls);
-  return <T>(
+export function createModelSession(
+  onRetry?: (schema: z.ZodType) => void,
+  usedCalls = 0,
+) {
+  const run = createModelBudget(USAGE_LIMITS.modelCalls, 2000, usedCalls);
+  const ask = <T>(
     prompt: string,
     files: Attachment[],
     schema: z.ZodType<T>,
@@ -88,6 +91,7 @@ export function createModelSession(onRetry?: (schema: z.ZodType) => void) {
       () => onRetry?.(schema),
     );
   };
+  return Object.assign(ask, { callsUsed: run.callsUsed });
 }
 function textOf(j: any) {
   return (

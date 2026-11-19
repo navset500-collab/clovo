@@ -1,9 +1,13 @@
 import { ModelError } from "./model-error.ts";
 // One retry shared by the entire review. Count every attempt before it runs.
-export function createModelBudget(maxCalls: number, delayMs = 1200) {
-  let calls = 0,
+export function createModelBudget(
+  maxCalls: number,
+  delayMs = 2000,
+  usedCalls = 0,
+) {
+  let calls = usedCalls,
     retryUsed = false;
-  return async function run<T>(
+  async function run<T>(
     call: () => Promise<T>,
     signal?: AbortSignal,
     onRetry?: () => void,
@@ -41,5 +45,6 @@ export function createModelBudget(maxCalls: number, delayMs = 1200) {
       });
       return attempt();
     }
-  };
+  }
+  return Object.assign(run, { callsUsed: () => calls });
 }

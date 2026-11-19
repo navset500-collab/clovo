@@ -193,6 +193,7 @@ export type Report = {
 };
 export type Review = { input: ProjectInput; report: Report };
 export type AnalysisEvent =
+  | { type: "recovery"; token: string; expiresAt: string; completed: AgentId[] }
   | {
       type: "agent";
       at?: number;

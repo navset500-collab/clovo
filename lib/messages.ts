@@ -1,6 +1,14 @@
 // Keep error identifiers in state, then translate at render time. Changing the
 // language must also translate errors that were received before the switch.
 const messages: Record<string, [string, string]> = {
+  recovery_invalid: [
+    "This recovery checkpoint has expired, the brief changed, or it belongs to another browser. Start a new review with your saved brief. No AI was started by this rejected recovery request.",
+    "El punto de recuperación caducó, cambió el texto o pertenece a otro navegador. Inicia un nuevo análisis con tu texto. Esta solicitud rechazada no inició la IA.",
+  ],
+  recovery_used: [
+    "This checkpoint has already been used. Use the newest Continue button if available, or start a new review. No AI was started by this rejected recovery request.",
+    "Este punto de recuperación ya se utilizó. Usa el botón Continuar más reciente si está disponible, o inicia un nuevo análisis. Esta solicitud rechazada no inició la IA.",
+  ],
   allowance_check_unavailable: [
     "Clovo couldn’t reach the review counter. This does not mean you used five reviews. Keep your brief here and select Check again in a moment. No AI has started and no review was used.",
     "Clovo no pudo consultar el contador de análisis. Esto no significa que hayas usado cinco análisis. Conserva tu texto aquí y pulsa Volver a consultar en un momento. No se inició la IA ni se consumió un análisis.",

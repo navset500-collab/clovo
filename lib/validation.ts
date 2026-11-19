@@ -27,6 +27,7 @@ export const safeUrl = z
     "Use an http or https link",
   );
 export const inputSchema = z.object({
+  recoveryToken: z.string().max(600000).optional(),
   name: z.string().trim().min(1).max(80),
   description: z
     .string()
@@ -178,6 +179,13 @@ export const personaSchema = z.object({
   alternative: prose,
   wouldTry: z.enum(["yes", "maybe", "no"]),
   condition: prose,
+});
+export const panelBatchSchema = z.object({
+  personas: z
+    .array(
+      personaSchema.extend({ profileIndex: z.number().int().min(0).max(4) }),
+    )
+    .length(PANEL_SIZE),
 });
 export const critiqueSchema = z.object({
   summary: prose,

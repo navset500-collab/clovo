@@ -44,6 +44,7 @@ import { EvidenceBadges, EvidenceDrawer, EvidenceSummary } from "./Evidence";
 import { prepareFile } from "@/lib/files";
 import { errorText, errorHeading, reviewErrorCode } from "@/lib/messages";
 import { reportMarkdown } from "@/lib/export";
+import { checkAllowance } from "@/lib/allowance-status";
 const blank: ProjectInput = {
   name: "",
   description: "",
@@ -56,6 +57,13 @@ const blank: ProjectInput = {
 };
 const STORAGE = "clovo-workspace-v3";
 export default function Studio() {
+  const [recovery, setRecovery] = useState<{
+    token: string;
+    expiresAt: string;
+    completed: AgentId[];
+    input: ProjectInput;
+  } | null>(null);
+  const [resuming, setResuming] = useState(false);
   const [walkthrough, setWalkthrough] = useState(false),
     [questions, setQuestions] = useState<string[]>([]),
     [runReady, setRunReady] = useState(false),
@@ -188,8 +196,14 @@ export default function Studio() {
       setFilesBusy(false);
     }
   }
-  async function analyze(e: React.FormEvent, input: ProjectInput = draft) {
+  async function analyze(
+    e: React.FormEvent,
+    input: ProjectInput = draft,
+    recoveryToken?: string,
+  ) {
     e.preventDefault();
+    const analysisLanguage = recoveryToken ? input.language : language;
+    if (!recoveryToken) setRecovery(null);
     setDraft(input);
     setQuestions([]);
     setErrorReset(undefined);
@@ -211,7 +225,11 @@ export default function Studio() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...input, language }),
+        body: JSON.stringify({
+          ...input,
+          language: analysisLanguage,
+          recoveryToken,
+        }),
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -219,13 +237,19 @@ export default function Studio() {
         setErrorReset(j.resetAt);
         throw new Error(j.code || j.error);
       }
+      setRecovery(null); // The server has accepted and consumed this checkpoint.
       const reader = response.body!.getReader(),
         decoder = new TextDecoder();
       let buffer = "";
       function handle(line: string) {
         if (!line.trim()) return;
         const event = JSON.parse(line) as AnalysisEvent;
-        if (event.type === "agent") {
+        if (event.type === "recovery") {
+          setRecovery({
+            ...event,
+            input: { ...input, language: analysisLanguage },
+          });
+        } else if (event.type === "agent") {
           setEvents((v) => [
             ...v,
             {
@@ -279,7 +303,11 @@ export default function Studio() {
           throw new Error(event.code || event.message);
         } else if (event.type === "result") {
           const result = {
-            input: { ...input, accessCode: undefined, language },
+            input: {
+              ...input,
+              accessCode: undefined,
+              language: analysisLanguage,
+            },
             report: event.report,
           };
           setReview(result);
@@ -329,6 +357,31 @@ export default function Studio() {
       setPage("home");
     } finally {
       abort.current = null;
+    }
+  }
+  async function continueReview(e: React.FormEvent) {
+    e.preventDefault();
+    if (!recovery || resuming) return;
+    setResuming(true);
+    try {
+      if (Date.parse(recovery.expiresAt) <= Date.now()) {
+        setRecovery(null);
+        throw new Error("recovery_invalid");
+      }
+      const available = await checkAllowance(
+        new AbortController().signal,
+        () => {},
+      );
+      if (!available.ready) throw new Error("review_paused");
+      if (available.allowance?.code) {
+        setErrorReset(available.allowance.resetAt || undefined);
+        throw new Error(available.allowance.code);
+      }
+      await analyze(e, recovery.input, recovery.token);
+    } catch (error) {
+      setError(reviewErrorCode(error));
+    } finally {
+      setResuming(false);
     }
   }
   function download() {
@@ -425,6 +478,45 @@ export default function Studio() {
                 <div>
                   <strong>{errorHeading(error, language)}</strong>
                   <p>{errorText(error, language)}</p>
+                  {recovery && (
+                    <div className="recovery-actions">
+                      <p>
+                        {t(
+                          "Completed work is kept in this tab: ",
+                          "El trabajo completado se conserva en esta pestaña: ",
+                        )}
+                        {recovery.completed
+                          .map((id) => AGENTS.find((a) => a.id === id)?.name)
+                          .join(", ")}
+                        .
+                        {t(
+                          " Continue within 30 minutes using the same brief. This uses another shared attempt, but skips completed agents. Keep this tab open.",
+                          " Continúa en 30 minutos con el mismo texto. Usa otro intento compartido, pero omite los agentes completados. Mantén abierta esta pestaña.",
+                        )}
+                      </p>
+                      <button
+                        className="primary"
+                        disabled={resuming}
+                        onClick={continueReview}
+                      >
+                        {resuming
+                          ? t(
+                              "Checking availability…",
+                              "Consultando disponibilidad…",
+                            )
+                          : t(
+                              "Continue unfinished review",
+                              "Continuar análisis pendiente",
+                            )}
+                      </button>
+                      <button
+                        className="text-button"
+                        onClick={() => setBrain(recovery.completed[0])}
+                      >
+                        {t("Read completed work", "Leer el trabajo completado")}
+                      </button>
+                    </div>
+                  )}
                   {failureDetail?.agent && (
                     <p>
                       {t("Stopped at: ", "Se detuvo en: ")}

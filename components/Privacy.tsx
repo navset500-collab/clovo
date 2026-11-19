@@ -62,7 +62,7 @@ export default function Privacy() {
         </p>
         <p>
           {t(
-            "Last updated November 18, 2026. Clovo is an independent product prototype. No account is required.",
+            "Last updated November 19, 2026. Clovo is an independent product prototype. No account is required.",
             "Actualizada el 18 de noviembre de 2026. Clovo es un prototipo de producto independiente. No se requiere una cuenta.",
           )}
         </p>
@@ -135,8 +135,8 @@ export default function Privacy() {
           </h2>
           <p>
             {t(
-              "The latest project text and AI report, language preference, build checklist and study owner keys are saved in local browser storage. Attachments are not saved in that storage. We do not save review uploads or AI reports to our cloud database. Server memory holds the request while it is processed. Clearing your browser data removes these local copies and may remove your ability to manage a study.",
-              "El texto del último proyecto, el informe de IA, el idioma, la lista de mejoras y las claves de propietario se guardan en el almacenamiento local. Los archivos adjuntos no se guardan allí. No almacenamos los archivos de análisis ni los informes de IA en nuestra base de datos en la nube. La memoria del servidor mantiene la solicitud durante su procesamiento. Borrar los datos del navegador elimina estas copias y puede impedirte administrar una prueba.",
+              "The latest project text and AI report, language preference, build checklist and study owner keys are saved in local browser storage. Attachments are not saved in that storage. We do not save review uploads or AI reports to our cloud database. Server memory holds the request while it is processed. After an interrupted review, a signed recovery checkpoint containing completed agent outputs may be kept in this open tab for up to 30 minutes. It is not uploaded to our database or saved across a page refresh. Resuming sends it back with the same brief for signature verification. Clearing your browser data removes these local copies and may remove your ability to manage a study.",
+              "El texto del último proyecto, el informe de IA, el idioma, la lista de mejoras y las claves de propietario se guardan en el almacenamiento local. Los archivos adjuntos no se guardan allí. No almacenamos los archivos de análisis ni los informes de IA en nuestra base de datos en la nube. La memoria del servidor mantiene la solicitud durante su procesamiento. Tras una interrupción, esta pestaña puede conservar hasta 30 minutos un punto de recuperación firmado con los resultados completados. No se sube a nuestra base de datos ni se conserva al recargar. Al continuar, se envía con el mismo texto para verificar la firma. Borrar los datos del navegador elimina estas copias y puede impedirte administrar una prueba.",
             )}
           </p>
         </section>
