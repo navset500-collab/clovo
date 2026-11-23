@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { critiqueSchema } from "./validation";
+import { compactModelSchema } from "./model-schema";
 import { ModelError } from "./model-error";
 import { createModelBudget } from "./model-budget";
 import type { Attachment, Source } from "./types";
@@ -123,7 +125,9 @@ export async function askModel<T>(
       contents: [{ role: "user", parts }],
       generationConfig: {
         responseMimeType: "application/json",
-        responseJsonSchema: z.toJSONSchema(schema, { unrepresentable: "any" }),
+        responseJsonSchema: Object.is(schema, critiqueSchema)
+          ? compactModelSchema(schema)
+          : z.toJSONSchema(schema, { unrepresentable: "any" }),
         maxOutputTokens: USAGE_LIMITS.outputTokens,
         temperature: 0.25,
         thinkingConfig: { thinkingLevel: "low" },

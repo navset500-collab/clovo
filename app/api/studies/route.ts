@@ -4,7 +4,7 @@ import { newKey, hashKey, guard, limitedJson } from "@/lib/access";
 import { writeJson, studyPath } from "@/lib/studies";
 export async function POST(request: Request) {
   const denied = guard(request, "study-create", 8);
-  if (denied) return Response.json({ error: denied }, { status: 429 });
+  if (denied) return Response.json({ error: denied }, { status: denied === "Invalid request origin." ? 403 : 429 });
   try {
     const parsed = studySchema.safeParse(await limitedJson(request, 15000));
     if (!parsed.success)

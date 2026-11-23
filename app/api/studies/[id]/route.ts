@@ -56,7 +56,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const denied = guard(request, "feedback", 30);
-  if (denied) return json({ error: denied }, 429);
+  if (denied) return json({ error: denied }, denied === "Invalid request origin." ? 403 : 429);
   try {
     const { id } = await params;
     if (!validId(id)) return json({ error: "Invalid study." }, 404);
@@ -105,7 +105,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const denied = guard(request, "study-delete");
-  if (denied) return json({ error: denied }, 429);
+  if (denied) return json({ error: denied }, denied === "Invalid request origin." ? 403 : 429);
   try {
     const { id } = await params;
     if (!validId(id)) return json({ error: "Invalid study." }, 404);

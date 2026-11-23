@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   if (denied)
     return Response.json(
       { error: denied, code: errorCode(denied) },
-      { status: 429 },
+      { status: denied === "Invalid request origin." ? 403 : 429 },
     );
   let raw;
   try {

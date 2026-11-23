@@ -101,12 +101,12 @@ export const AGENT_GUIDES: Record<AgentId, Guide> = {
       [
         "Ranks demand, adoption, experience and feasibility failure modes, then asks what evidence could weaken each criticism.",
         "Links each concern to original material; unmatched claims become hypotheses.",
-        "Assesses problem clarity, audience focus, proposed value and testability.",
+        "Checks 16 explicit criteria across problem, audience, value and testability. Missing or unquoted support earns zero.",
       ],
       [
         "Prioriza fallos de demanda, adopción, experiencia y viabilidad y pide evidencia que podría debilitar cada crítica.",
         "Relaciona preocupaciones con material original; lo no respaldado queda como hipótesis.",
-        "Evalúa claridad del problema, público, valor y facilidad de prueba.",
+        "Comprueba 16 criterios de problema, público, valor y prueba. Sin respaldo citado, no otorga puntos.",
       ],
     ],
     limit: [
