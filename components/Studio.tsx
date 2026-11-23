@@ -480,11 +480,11 @@ export default function Studio() {
               </div>
               <ProductPreview language={language} />
             </section>
-            {error && (
+            {(error || recovery) && (
               <div className="error page-error" role="alert">
                 <div>
-                  <strong>{errorHeading(error, language)}</strong>
-                  <p>{errorText(error, language)}</p>
+                  <strong>{error ? errorHeading(error, language) : t("An unfinished review is available", "Hay un análisis pendiente")}</strong>
+                  {error && <p>{errorText(error, language)}</p>}
                   {recovery && (
                     <div className="recovery-actions">
                       <p>
