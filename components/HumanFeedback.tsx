@@ -255,8 +255,8 @@ export default function HumanFeedback({
           <h3>{t("Create your page", "Crea tu página")}</h3>
           <p>
             {t(
-              "Review the description and questions, then create a questionnaire hosted right here on Clovo. This does not publish your whole AI report.",
-              "Revisa la descripción y las preguntas y crea un formulario alojado aquí, en Clovo. No se publica todo tu informe de IA.",
+              "Preview your description and questions. Create a shareable page hosted on Clovo.",
+              "Revisa tu descripción y las preguntas. Crea una página para compartir, alojada en Clovo.",
             )}
           </p>
         </article>
@@ -265,8 +265,8 @@ export default function HumanFeedback({
           <h3>{t("Send your feedback link", "Comparte tu enlace")}</h3>
           <p>
             {t(
-              "Copy the link into a message to people who face this problem. Clovo does not post it to social media, send invitations, or recruit testers.",
-              "Copia el enlace en un mensaje para personas que tengan este problema. Clovo no lo publica en redes sociales, envía invitaciones ni recluta participantes.",
+              "You choose and invite people who face this problem. Clovo does not send invitations or recruit testers.",
+              "Tú eliges e invitas a personas con este problema. Clovo no envía invitaciones ni recluta participantes.",
             )}
           </p>
         </article>
@@ -275,8 +275,8 @@ export default function HumanFeedback({
           <h3>{t("Come back for answers", "Vuelve por las respuestas")}</h3>
           <p>
             {t(
-              "They open the link and answer without an account. Return to this report in the same browser and choose Check for responses. Nothing appears until someone submits the form.",
-              "Abren el enlace y responden sin cuenta. Vuelve a este informe en el mismo navegador y pulsa Consultar respuestas. No aparecerá nada hasta que alguien envíe el formulario.",
+              "They answer without an account. Return here in this browser and press Check for responses.",
+              "Responden sin cuenta. Vuelve aquí en este navegador y pulsa Consultar respuestas.",
             )}
           </p>
         </article>
@@ -344,7 +344,10 @@ export default function HumanFeedback({
               {new Date(r.createdAt).toLocaleDateString(es ? "es" : "en")}
             </span>
           </div>
-          <p>{r.feedback}</p>
+          <span className={`response-intent tone-${r.use === "yes" ? "action" : r.use === "no" ? "risk" : "uncertain"}`}>
+            {r.use === "yes" ? t("Would try it", "Lo probaría") : r.use === "no" ? t("Would not try it", "No lo probaría") : t("Unsure about trying it", "No sabe si lo probaría")}
+          </span>
+          <div className="response-feedback"><strong>{t("Their feedback", "Sus comentarios")}</strong><p>{r.feedback}</p></div>
           <div className="detail-label">
             {t("Current approach", "Solución actual")}
           </div>
@@ -366,8 +369,8 @@ export default function HumanFeedback({
         </h3>
         <p>
           {t(
-            "Vera wrote this test plan from your brief and the concerns the other agents found. The task is something to ask a participant to try. The questions help you learn about their current habits, confusion and reasons to switch. These are suggested questions—not answers or proof of demand.",
-            "Vera preparó esta prueba a partir de tu idea y los problemas detectados. La tarea es algo que pides al participante que intente. Las preguntas exploran hábitos, dudas y motivos para cambiar. Son preguntas sugeridas, no respuestas ni pruebas de demanda.",
+            "Vera’s suggested test: invite the right people, give them a task, then observe what they do. The questions below are prompts for learning; they are not evidence of demand.",
+            "La prueba sugerida por Vera: invita al público adecuado, propón una tarea y observa lo que hace. Estas preguntas sirven para aprender; no son evidencia de demanda.",
           )}
         </p>
         {review.report.experiment.hypothesis && (
@@ -378,22 +381,17 @@ export default function HumanFeedback({
             <p>{review.report.experiment.hypothesis}</p>
           </div>
         )}
-        <h4>{t("Who to invite", "A quién invitar")}</h4>
-        <p>{review.report.experiment.recruit}</p>
-        <p>
-          <strong>{t("Give them this task: ", "Propón esta tarea: ")}</strong>
-          {review.report.experiment.task}
-        </p>
+        <div className="test-plan-grid">
+          <section className="insight-card tone-simulation"><span className="report-eyebrow">01</span><h4>{t("Who to invite", "A quién invitar")}</h4><p>{review.report.experiment.recruit}</p></section>
+          <section className="insight-card tone-action"><span className="report-eyebrow">02</span><h4>{t("Give them this task", "Propón esta tarea")}</h4><p>{review.report.experiment.task}</p></section>
+          <section className="insight-card tone-evidence"><span className="report-eyebrow">03</span><h4>{t("Watch for this", "Observa esto")}</h4><p>{review.report.experiment.successSignal}</p></section>
+        </div>
         <h4>{t("What to ask afterward", "Qué preguntar después")}</h4>
         <ol>
           {review.report.experiment.questions.map((q) => (
             <li key={q}>{q}</li>
           ))}
         </ol>
-        <p>
-          <strong>{t("Observe: ", "Observa: ")}</strong>
-          {review.report.experiment.successSignal}
-        </p>
         {review.report.experiment.rethinkSignal && (
           <p className="counter-evidence">
             <strong>

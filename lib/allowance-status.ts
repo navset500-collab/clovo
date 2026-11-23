@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 const allowanceSchema = z.object({
-  reviewsRemaining: z.number().int().min(0).max(5),
-  reviewLimit: z.literal(5),
-  windowHours: z.literal(5),
+  reviewsRemaining: z.number().int().min(0).max(10),
+  reviewLimit: z.union([z.literal(5), z.literal(10)]),
+  windowHours: z.union([z.literal(5), z.literal(24)]),
   personalCode: z.string(),
   personalResetAt: z.string().nullable(),
   code: z.string(),

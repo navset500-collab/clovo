@@ -10,9 +10,9 @@ const available = {
   ready: true,
   requiresCode: false,
   allowance: {
-    reviewsRemaining: 5,
-    reviewLimit: 5,
-    windowHours: 5,
+    reviewsRemaining: 10,
+    reviewLimit: 10,
+    windowHours: 24,
     personalCode: "",
     personalResetAt: null,
     code: "",
@@ -44,7 +44,7 @@ test("a temporary storage failure recovers once without invoking an analysis", a
       assert.equal(ms, 5000);
     },
   );
-  assert.equal(result.allowance?.reviewsRemaining, 5);
+  assert.equal(result.allowance?.reviewsRemaining, 10);
   assert.equal(calls, 2);
   assert.equal(retries, 1);
 });

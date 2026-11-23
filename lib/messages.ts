@@ -10,20 +10,20 @@ const messages: Record<string, [string, string]> = {
     "Este punto de recuperación ya se utilizó. Usa el botón Continuar más reciente si está disponible, o inicia un nuevo análisis. Esta solicitud rechazada no inició la IA.",
   ],
   allowance_check_unavailable: [
-    "Clovo couldn’t reach the review counter. This does not mean you used five reviews. Keep your brief here and select Check again in a moment. No AI has started and no review was used.",
-    "Clovo no pudo consultar el contador de análisis. Esto no significa que hayas usado cinco análisis. Conserva tu texto aquí y pulsa Volver a consultar en un momento. No se inició la IA ni se consumió un análisis.",
+    "Clovo couldn’t reach the review counter. This does not mean you used ten reviews. Keep your brief here and select Check again in a moment. No AI has started and no review was used.",
+    "Clovo no pudo consultar el contador de análisis. Esto no significa que hayas usado diez análisis. Conserva tu texto aquí y pulsa Volver a consultar en un momento. No se inició la IA ni se consumió un análisis.",
   ],
   allowance_check_limited: [
-    "Too many availability checks were made on this connection. Please try again later. No AI has started; this is not your five-review limit.",
-    "Se hicieron demasiadas consultas de disponibilidad desde esta conexión. Vuelve a intentarlo más tarde. No se inició la IA; este no es tu límite de cinco análisis.",
+    "Too many availability checks were made on this connection. Please try again later. No AI has started; this is not your ten-review limit.",
+    "Se hicieron demasiadas consultas de disponibilidad desde esta conexión. Vuelve a intentarlo más tarde. No se inició la IA; este no es tu límite de diez análisis.",
   ],
   completion_save_failed: [
     "Clovo prepared the analysis but could not confirm its completed-review record. Keep your text in this tab and check availability before retrying. This is a storage problem, not feedback on your idea.",
     "Clovo preparó el análisis pero no pudo confirmar su registro. Conserva el texto en esta pestaña y consulta la disponibilidad antes de reintentar. Es un problema de almacenamiento, no una evaluación de tu idea.",
   ],
   visitor_completed: [
-    "You have completed all 5 reviews in this browser’s five-hour window. Your next 5 become available at the reset time below.",
-    "Has completado los 5 análisis de este navegador en el periodo de cinco horas. Los próximos 5 estarán disponibles a la hora indicada.",
+    "You have completed 10 reviews in this browser over the last 24 hours. One slot returns 24 hours after each completed review; the next time is shown below.",
+    "Has completado 10 análisis en este navegador en las últimas 24 horas. Cada uno vuelve a estar disponible 24 horas después de completarlo; la próxima hora aparece abajo.",
   ],
   visitor_busy: [
     "A review is already running in this browser. Wait for it to finish before starting another. This blocked request did not use a review.",
@@ -42,8 +42,8 @@ const messages: Record<string, [string, string]> = {
     "Clovo no pudo mantener la conexión con el servicio de análisis. Conserva esta pestaña para mantener tu texto, revisa la conexión y consulta la disponibilidad antes de reintentar.",
   ],
   stream_interrupted: [
-    "The connection ended before Clovo received a report. Your text is still in this tab. Check availability before trying again; this message does not mean you used five completed reviews.",
-    "La conexión terminó antes de recibir un informe. Tu texto sigue en esta pestaña. Consulta la disponibilidad antes de reintentar; este aviso no significa que hayas completado cinco análisis.",
+    "The connection ended before Clovo received a report. Your text is still in this tab. Check availability before trying again; this message does not mean you used ten completed reviews.",
+    "La conexión terminó antes de recibir un informe. Tu texto sigue en esta pestaña. Consulta la disponibilidad antes de reintentar; este aviso no significa que hayas completado diez análisis.",
   ],
   panel_invalid: [
     "The simulated panel could not produce five distinct profiles that passed validation. No complete report was recorded. Your text is still here.",
@@ -245,8 +245,8 @@ export function errorHeading(value: string, language: "en" | "es") {
     es = language === "es";
   if (code === "visitor_completed")
     return es
-      ? "Has completado tus cinco análisis."
-      : "You’ve completed your five reviews.";
+      ? "Has completado tus diez análisis."
+      : "You’ve completed your ten reviews.";
   if (code.startsWith("global_"))
     return es
       ? "Clovo alcanzó su presupuesto compartido."

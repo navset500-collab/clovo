@@ -1,12 +1,13 @@
 "use client";
-import { ChevronDown, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Check, Minus, ChevronDown } from "lucide-react";
+import { CHECK_LABELS } from "@/lib/scoring";
 import type { Language, Review } from "@/lib/types";
 import type { CSSProperties } from "react";
 const labels = {
-  problem: ["Problem clarity", "Claridad del problema"],
-  audience: ["Audience focus", "Enfoque del público"],
-  value: ["Proposed value", "Valor propuesto"],
-  testability: ["Testability", "Facilidad de prueba"],
+  problem: ["Problem", "Problema"],
+  audience: ["Audience", "Público"],
+  value: ["Value", "Valor"],
+  testability: ["Test plan", "Plan de prueba"],
 };
 export default function Readiness({
   review,
@@ -20,12 +21,25 @@ export default function Readiness({
   const score = review.report.readiness,
     es = language === "es";
   if (!score) return null;
-  const next = [...score.dimensions]
-    .filter((d) => d.nextStep)
-    .sort((a, b) => a.points - b.points)[0];
+  const tone =
+    score.total < 25 ? "risk" : score.total < 75 ? "uncertain" : "action";
+  const verdict =
+    score.total < 25
+      ? ["Not ready to test yet", "Aún no está lista para probar"]
+      : score.total < 50
+        ? ["Major gaps to resolve", "Faltan detalles esenciales"]
+        : score.total < 75
+          ? ["A workable brief with gaps", "Una base con puntos pendientes"]
+          : [
+              "A well-specified testable brief",
+              "Una propuesta concreta y comprobable",
+            ];
   return (
-    <section className="readiness-card">
-      <div className="readiness-top">
+    <section
+      className={`score-board tone-${tone}`}
+      aria-label={es ? "Puntuación y criterios" : "Score and criteria"}
+    >
+      <div className="score-verdict">
         <div
           className="score-ring"
           style={{ "--score": `${score.total}%` } as CSSProperties}
@@ -36,93 +50,100 @@ export default function Readiness({
           </div>
         </div>
         <div>
-          <span className="detail-label">
+          <span className="report-eyebrow">
             {es ? "Preparación para probar" : "Readiness to test"}
           </span>
-          <h3>
-            {score.total >= 75
-              ? es
-                ? "Una base clara para poner a prueba."
-                : "A clear starting point to test."
-              : score.total >= 50
-                ? es
-                  ? "Tu idea está tomando forma."
-                  : "Your idea is taking shape."
-                : es
-                  ? "Aclara la base antes de avanzar."
-                  : "Sharpen the foundation first."}
-          </h3>
+          <h2>{verdict[es ? 1 : 0]}</h2>
           <p>
             {es
-              ? "Una evaluación de tu planteamiento, basada en cuatro criterios. No predice éxito ni mide demanda."
-              : "An assessment of your brief against four criteria. It does not predict success or measure demand."}
+              ? "La calidad del planteamiento, no una predicción de éxito ni una prueba de demanda."
+              : "How well the brief is specified—not a prediction of success or proof of demand."}
           </p>
+          <span className="status-tag">
+            {score.version === 2
+              ? es
+                ? `${score.dimensions.reduce((n, d) => n + d.rating, 0)} de 16 criterios respaldados`
+                : `${score.dimensions.reduce((n, d) => n + d.rating, 0)} of 16 criteria supported`
+              : es
+                ? "Rúbrica anterior · informe guardado"
+                : "Earlier rubric · saved report"}
+          </span>
         </div>
       </div>
-      {next && (
-        <div className="score-next">
-          <strong>
-            {es
-              ? "Una forma concreta de mejorar tu planteamiento"
-              : "One concrete way to strengthen your brief"}
-          </strong>
-          <p>{next.nextStep}</p>
-        </div>
-      )}
-      <details className="score-details">
+      <div className="score-breakdown">
+        {score.dimensions.map((d) => (
+          <details key={d.id} className="score-factor">
+            <summary>
+              <span>{labels[d.id][es ? 1 : 0]}</span>
+              <strong>
+                {d.points}
+                <small> / 25</small>
+              </strong>
+              <ChevronDown size={17} />
+              <span className="factor-track">
+                <i style={{ width: `${d.points * 4}%` }} />
+              </span>
+            </summary>
+            <p>{d.reason}</p>
+            {d.checks && (
+              <ul className="criteria-list">
+                {d.checks.map((c) => (
+                  <li className={c.met ? "met" : "missing"} key={c.id}>
+                    {c.met ? <Check size={17} /> : <Minus size={17} />}
+                    <span>
+                      {CHECK_LABELS[c.id]?.[es ? 1 : 0] || c.id}
+                      <small>
+                        {c.met
+                          ? es
+                            ? "Respaldado por tu texto"
+                            : "Supported in your brief"
+                          : es
+                            ? "No establecido"
+                            : "Not established"}
+                      </small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {d.nextStep && (
+              <div className="action-inset">
+                <strong>
+                  {es
+                    ? "Para mejorar este criterio"
+                    : "To strengthen this area"}
+                </strong>
+                <p>{d.nextStep}</p>
+              </div>
+            )}
+            {[...new Set(d.citations.map((c) => c.sourceId))].map((id) => (
+              <button
+                key={id}
+                className="text-button"
+                onClick={() => onSource(id)}
+              >
+                {es ? "Ver evidencia" : "Inspect evidence"} · {id}
+                <ArrowUpRight size={16} />
+              </button>
+            ))}
+          </details>
+        ))}
+      </div>
+      <details className="rubric-note">
         <summary>
-          <span>{es ? "Ver cómo se calculó" : "See how this was scored"}</span>
-          <ChevronDown size={19} />
+          {es
+            ? "Cómo se calcula · sin puntuación mínima"
+            : "How scoring works · no minimum score"}
         </summary>
         <p>
-          {es
-            ? "Cada criterio recibe de 0 a 4: ausente, vago, parcial, claro o concreto y comprobable. Cada punto aporta 6,25 al total. Sin una cita de tu texto que coincida, el criterio no puede superar 1. Los juicios los realiza la IA; el cálculo y las comprobaciones se hacen en código."
-            : "Each criterion is rated 0–4: missing, vague, partial, clear, or concrete and testable. Each point contributes 6.25; the total is rounded to a whole number. Without a matching quote from your text, a criterion is capped at 1. AI makes the judgments; code calculates the total and checks the quotes."}
+          {score.version === 2
+            ? es
+              ? "Cada uno de los 16 criterios necesita una afirmación explícita y una cita coincidente de tu texto. Cada criterio aporta 6,25 puntos; no hay puntos por entusiasmo ni respuestas simuladas. La IA juzga si el texto cumple el criterio; el código verifica las citas, elimina duplicados y suma. Una cita coincidente no demuestra que la afirmación sea verdadera."
+              : "Each of 16 criteria needs an explicit detail and a matching quote from your brief. Each earns 6.25 points; enthusiasm and simulated reactions earn none. AI judges whether the detail meets the criterion; code verifies quotes, rejects duplicates and calculates the total. A quote match does not prove the claim is true."
+            : es
+              ? "Este informe conserva su puntuación original de la rúbrica anterior. Un análisis nuevo utiliza los 16 criterios estrictos."
+              : "This saved report retains its original score under the earlier rubric. New reviews use the stricter 16-criterion rubric."}
         </p>
-        <div className="score-dimensions">
-          {score.dimensions.map((d) => (
-            <article key={d.id}>
-              <div>
-                <h4>{labels[d.id][es ? 1 : 0]}</h4>
-                <strong>
-                  {d.points} <span>/ 25</span>
-                </strong>
-              </div>
-              <div
-                className="dimension-meter"
-                role="meter"
-                aria-label={labels[d.id][es ? 1 : 0]}
-                aria-valuenow={d.points}
-                aria-valuemin={0}
-                aria-valuemax={25}
-              >
-                <i style={{ width: `${d.points * 4}%` }} />
-              </div>
-              <p>{d.reason}</p>
-              {d.nextStep && (
-                <p>
-                  <strong>{es ? "Siguiente paso: " : "Next step: "}</strong>
-                  {d.nextStep}
-                </p>
-              )}
-              {d.citations
-                .filter(
-                  (c, i, all) =>
-                    all.findIndex((x) => x.sourceId === c.sourceId) === i,
-                )
-                .map((c, i) => (
-                  <button
-                    key={i}
-                    className="text-button"
-                    onClick={() => onSource(c.sourceId)}
-                  >
-                    {c.sourceId} · {es ? "Ver la fuente" : "Inspect source"}
-                    <ArrowUpRight size={15} />
-                  </button>
-                ))}
-            </article>
-          ))}
-        </div>
       </details>
     </section>
   );

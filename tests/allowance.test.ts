@@ -18,67 +18,72 @@ import {
 import { errorText, reviewErrorCode, errorHeading } from "../lib/messages.ts";
 const now = Date.UTC(2026, 10, 18, 19),
   day = "2026-11-18";
-test("exactly five completed reports are permitted; the sixth is blocked", () => {
+test("ten completed reports are permitted; only the eleventh is blocked", () => {
   let state: VisitorWindow | null = null;
-  for (let i = 0; i < 5; i++) {
-    state = reserveVisitor(state, String(i), now + i * 1000);
-    state = settleVisitor(state, String(i), true);
-    assert.equal(visitorSnapshot(state, now + 5000).reviewsRemaining, 4 - i);
+  for (let i = 0; i < 10; i++) {
+    const time = now + i * 1000;
+    state = reserveVisitor(state, String(i), time);
+    state = settleVisitor(state, String(i), true, time);
+    assert.equal(visitorSnapshot(state, time).reviewsRemaining, 9 - i);
   }
-  assert.throws(
-    () => reserveVisitor(state, "sixth", now + 6000),
-    (e) => e instanceof UsageError && e.code === "visitor_completed",
-  );
+  assert.throws(() => reserveVisitor(state, "eleventh", now + 10000),
+    (e) => e instanceof UsageError && e.code === "visitor_completed");
 });
-test("failures, cancellation and clarification do not consume a completed review", () => {
+test("failures, cancellation and clarification do not consume completed reports", () => {
   let state: VisitorWindow | null = null;
-  for (let i = 0; i < 7; i++) {
-    state = settleVisitor(
-      reserveVisitor(state, String(i), now + i * 1000),
-      String(i),
-      false,
-    );
+  for (let i = 0; i < 12; i++) {
+    const time = now + i * 1000;
+    state = settleVisitor(reserveVisitor(state, String(i), time), String(i), false, time);
   }
-  assert.equal(visitorSnapshot(state, now + 8000).reviewsRemaining, 5);
+  assert.equal(visitorSnapshot(state, now + 13000).reviewsRemaining, 10);
+  assert.equal(visitorSnapshot(state, now + 13000).personalResetAt, null);
 });
-test("the window resets at exactly five hours, including across midnight and month boundaries", () => {
+test("each completion expires exactly 24 hours later, across UTC day and month boundaries", () => {
   for (const start of [now, Date.UTC(2026, 10, 30, 23)]) {
-    let state = reserveVisitor(null, "one", start);
-    state = { ...settleVisitor(state, "one", true), completed: 5 };
-    assert.equal(
-      visitorSnapshot(state, start + REVIEW_WINDOW_MS - 1).reviewsRemaining,
-      0,
-    );
-    assert.equal(
-      visitorSnapshot(state, start + REVIEW_WINDOW_MS).reviewsRemaining,
-      5,
-    );
-    assert.equal(
-      reserveVisitor(state, "new", start + REVIEW_WINDOW_MS).startedAt,
-      start + REVIEW_WINDOW_MS,
-    );
+    let state: VisitorWindow | null = null;
+    for (let i = 0; i < 10; i++) {
+      const time = start + i * 60000;
+      state = settleVisitor(reserveVisitor(state, String(i), time), String(i), true, time);
+    }
+    assert.equal(visitorSnapshot(state, start + REVIEW_WINDOW_MS - 1).reviewsRemaining, 0);
+    const first = visitorSnapshot(state, start + REVIEW_WINDOW_MS);
+    assert.equal(first.reviewsRemaining, 1);
+    assert.equal(first.windowHours, 24);
+    assert.equal(first.personalResetAt, new Date(start + REVIEW_WINDOW_MS + 60000).toISOString());
+    assert.equal(visitorSnapshot(state, start + REVIEW_WINDOW_MS + 9 * 60000).reviewsRemaining, 10);
   }
 });
-test("parallel requests cannot both reserve the final review and settlement is idempotent", () => {
-  let state = reserveVisitor(
-    { startedAt: now, completed: 4, active: null },
-    "first",
-    now,
-  );
-  assert.throws(
-    () => reserveVisitor(state, "parallel", now),
-    (e) => e instanceof UsageError && e.code === "visitor_busy",
-  );
-  state = settleVisitor(state, "first", true);
-  assert.equal(state.completed, 5);
-  assert.deepEqual(settleVisitor(state, "first", true), state);
-  assert.deepEqual(settleVisitor(state, "unknown", true), state);
+test("a long-running review expires 24 hours after completion, not its start", () => {
+  const state = settleVisitor(reserveVisitor(null, "one", now), "one", true, now + 90000);
+  assert.equal(visitorSnapshot(state, now + REVIEW_WINDOW_MS).reviewsRemaining, 9);
+  assert.equal(visitorSnapshot(state, now + 90000 + REVIEW_WINDOW_MS).reviewsRemaining, 10);
 });
-test("expired failed leases can retry and late settlement cannot count a different run", () => {
+test("parallel reservations and duplicate settlement cannot spend the last slot twice", () => {
+  let state = reserveVisitor({ startedAt: now, completed: 9, active: null }, "first", now);
+  assert.throws(() => reserveVisitor(state, "parallel", now),
+    (e) => e instanceof UsageError && e.code === "visitor_busy");
+  state = settleVisitor(state, "first", true, now);
+  assert.equal(state.completed, 10);
+  assert.deepEqual(settleVisitor(state, "first", true, now), state);
+  assert.deepEqual(settleVisitor(state, "unknown", true, now), state);
+});
+test("an active review remains exclusive while older completions expire", () => {
+  const state = reserveVisitor({ startedAt: now, completed: 9, active: null }, "first", now + REVIEW_WINDOW_MS - 1);
+  assert.throws(() => reserveVisitor(state, "parallel", now + REVIEW_WINDOW_MS),
+    (e) => e instanceof UsageError && e.code === "visitor_busy");
+});
+test("legacy counters are retained and migrate without erasing completed usage", () => {
+  const legacy = { startedAt: now, completed: 5, active: null };
+  assert.equal(visitorSnapshot(legacy, now + 6 * 3600000).reviewsRemaining, 5);
+  const state = settleVisitor(reserveVisitor(legacy, "new", now + 1000), "new", true, now + 2000);
+  assert.equal(state.completedAt?.length, 6);
+  assert.equal(visitorSnapshot(state, now + REVIEW_WINDOW_MS).reviewsRemaining, 9);
+});
+test("expired leases can retry; late settlement cannot count a different run", () => {
   let state = reserveVisitor(null, "old", now);
   state = reserveVisitor(state, "new", now + 200001);
-  assert.equal(settleVisitor(state, "old", true).completed, 0);
-  assert.equal(visitorSnapshot(state, now + 200001).reviewsRemaining, 5);
+  assert.equal(settleVisitor(state, "old", true, now + 200002).completed, 0);
+  assert.equal(visitorSnapshot(state, now + 200001).reviewsRemaining, 10);
 });
 test("anonymous browsers on the same Wi-Fi have distinct signed counters", () => {
   const request = new Request("https://clovo.example", {
@@ -100,7 +105,7 @@ test("anonymous browsers on the same Wi-Fi have distinct signed counters", () =>
   });
   assert.notEqual(visitorIdentity(tampered, secret).key, a.key);
 });
-test("five personal reviews do not remove the shared monthly spending ceiling or past usage", () => {
+test("ten personal reviews do not remove the shared monthly spending ceiling or past usage", () => {
   let state = reserveUsage(null, USAGE_LIMITS, "wifi", "old", now);
   state = settleUsage(state, "old", day, false);
   state.total = 20;
@@ -109,7 +114,7 @@ test("five personal reviews do not remove the shared monthly spending ceiling or
     (e) => e instanceof UsageError && e.code === "global_monthly",
   );
   assert.equal(allowanceSnapshot(state, "wifi", now).code, "global_monthly");
-  assert.equal(visitorSnapshot(null, now).reviewsRemaining, 5);
+  assert.equal(visitorSnapshot(null, now).reviewsRemaining, 10);
   state.total = 6;
   state.daily = 1;
   state.networks.wifi = 3;
@@ -162,5 +167,5 @@ test("errors retain their cause and translate independently of personal allowanc
   );
   assert.match(errorHeading("provider_unavailable", "en"), /AI service/);
   assert.match(errorHeading("global_monthly", "en"), /shared budget/);
-  assert.match(errorHeading("visitor_completed", "en"), /five reviews/);
+  assert.match(errorHeading("visitor_completed", "en"), /ten reviews/);
 });

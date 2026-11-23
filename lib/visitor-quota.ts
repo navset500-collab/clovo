@@ -1,23 +1,36 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { UsageError } from "./usage-policy.ts";
-export const REVIEW_WINDOW_MS = 5 * 60 * 60 * 1000;
-export const REVIEWS_PER_WINDOW = 5;
+import {
+  REVIEWS_PER_WINDOW,
+  REVIEW_WINDOW_HOURS,
+  REVIEW_WINDOW_MS,
+} from "./review-limits.ts";
+export { REVIEWS_PER_WINDOW, REVIEW_WINDOW_MS } from "./review-limits.ts";
 export type VisitorWindow = {
   startedAt: number;
   completed: number;
+  completedAt?: number[];
   active: { id: string; expires: number } | null;
 };
+function completions(state: VisitorWindow | null, now: number) {
+  // Preserve legacy counts conservatively until 24 hours after their old start.
+  const times =
+    state?.completedAt ??
+    Array.from({ length: state?.completed || 0 }, () => state!.startedAt);
+  return times
+    .filter((at) => at > now - REVIEW_WINDOW_MS)
+    .sort((a, b) => a - b);
+}
 export function visitorSnapshot(state: VisitorWindow | null, now: number) {
-  const current =
-    state && now < state.startedAt + REVIEW_WINDOW_MS ? state : null;
-  const remaining = Math.max(0, REVIEWS_PER_WINDOW - (current?.completed || 0));
+  const times = completions(state, now);
+  const remaining = Math.max(0, REVIEWS_PER_WINDOW - times.length);
   return {
     reviewsRemaining: remaining,
     reviewLimit: REVIEWS_PER_WINDOW,
-    windowHours: 5,
+    windowHours: REVIEW_WINDOW_HOURS,
     personalCode: remaining === 0 ? "visitor_completed" : "",
-    personalResetAt: current
-      ? new Date(current.startedAt + REVIEW_WINDOW_MS).toISOString()
+    personalResetAt: times.length
+      ? new Date(times[0] + REVIEW_WINDOW_MS).toISOString()
       : null,
   };
 }
@@ -26,39 +39,44 @@ export function reserveVisitor(
   id: string,
   now: number,
 ): VisitorWindow {
-  const current =
-    state && now < state.startedAt + REVIEW_WINDOW_MS
-      ? structuredClone(state)
-      : { startedAt: now, completed: 0, active: null };
-  if (current.completed >= REVIEWS_PER_WINDOW) {
-    const reset = current.startedAt + REVIEW_WINDOW_MS;
+  const times = completions(state, now);
+  if (times.length >= REVIEWS_PER_WINDOW) {
+    const reset = times[0] + REVIEW_WINDOW_MS;
     throw new UsageError(
-      "Five completed reviews used.",
+      "Ten completed reviews used in the last 24 hours.",
       429,
       Math.ceil((reset - now) / 1000),
       "visitor_completed",
       new Date(reset).toISOString(),
     );
   }
-  if (current.active && current.active.expires > now)
+  if (state?.active && state.active.expires > now)
     throw new UsageError(
       "A review is already running in this browser.",
       429,
       30,
       "visitor_busy",
     );
-  current.active = { id, expires: now + 200000 };
-  return current;
+  return {
+    startedAt: state?.startedAt || now,
+    completed: times.length,
+    completedAt: times,
+    active: { id, expires: now + 200000 },
+  };
 }
 export function settleVisitor(
   state: VisitorWindow,
   id: string,
   completed: boolean,
+  now = Date.now(),
 ): VisitorWindow {
   if (state.active?.id !== id) return state;
+  const times = completions(state, now);
+  if (completed) times.push(now);
   return {
     ...state,
-    completed: state.completed + (completed ? 1 : 0),
+    completed: times.length,
+    completedAt: times,
     active: null,
   };
 }

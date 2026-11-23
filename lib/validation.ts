@@ -193,6 +193,36 @@ export const critiqueSchema = z.object({
     .array(
       z.object({
         id: z.enum(["problem", "audience", "value", "testability"]),
+        checks: z
+          .array(
+            z.object({
+              id: z.enum([
+                "situation",
+                "pain",
+                "workaround",
+                "consequence",
+                "group",
+                "context",
+                "constraint",
+                "reach",
+                "workflow",
+                "alternative",
+                "advantage",
+                "scope",
+                "hypothesis",
+                "test",
+                "signal",
+                "rethink",
+              ]),
+              met: z.boolean(),
+              citation: z.object({
+                sourceId: z.string().max(30),
+                quote: z.string().max(200),
+                location: z.string().max(100),
+              }),
+            }),
+          )
+          .length(4),
         rating: z.number().int().min(0).max(4),
         reason: prose,
         nextStep: z.string().max(500),

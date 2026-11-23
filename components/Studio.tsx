@@ -32,15 +32,14 @@ import AgentReplay from "./AgentReplay";
 import LiveRun from "./LiveRun";
 import Walkthrough, { ProductPreview } from "./Walkthrough";
 import ProjectForm from "./ProjectForm";
-import Readiness from "./Readiness";
-import { PANEL_LABELS } from "@/lib/panel";
 import {
-  DecisionFrame,
-  ResearchAudit,
-  ConcernPriority,
-  AlternativeDirections,
-} from "./ReviewDepth";
-import { EvidenceBadges, EvidenceDrawer, EvidenceSummary } from "./Evidence";
+  ReportOverview,
+  ReportResearch,
+  ReportPanel,
+  ReportBuild,
+  ReportLegend,
+} from "./ReportViews";
+import { EvidenceDrawer } from "./Evidence";
 import { prepareFile } from "@/lib/files";
 import { errorText, errorHeading, reviewErrorCode } from "@/lib/messages";
 import { reportMarkdown } from "@/lib/export";
@@ -143,6 +142,14 @@ export default function Studio() {
         setChecks([]);
       }
   }, [review?.report.id]);
+  function openReportSection(id: string) {
+    setTab(id);
+    if (window.scrollY > 250) requestAnimationFrame(() => {
+      document.getElementById("report-content")?.scrollIntoView({
+        block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+      });
+    });
+  }
   function openForm(seed?: ProjectInput) {
     setDraft(
       seed
@@ -716,7 +723,12 @@ export default function Studio() {
                       : t("Product review", "Análisis del producto")}
                   </span>
                 </div>
-                <p>{r.summary}</p>
+                <p>
+                  {t(
+                    "Find the gap. Make one change. Test it with people.",
+                    "Encuentra lo que falta. Haz un cambio. Pruébalo con personas.",
+                  )}
+                </p>
               </div>
               <div className="report-actions">
                 <button className="secondary" onClick={download}>
@@ -754,52 +766,22 @@ export default function Studio() {
                 )}
               </p>
             )}
-            <div
-              className="report-route"
-              aria-label={t("How to use your report", "Cómo usar tu informe")}
-            >
-              <div>
-                <strong>
-                  {t("Your next three moves", "Tus tres próximos pasos")}
-                </strong>
-                <p>
-                  {t(
-                    "Read the findings, choose a change, then test it with people.",
-                    "Lee los hallazgos, elige una mejora y pruébala con personas.",
-                  )}
-                </p>
-              </div>
-              <button onClick={() => setTab("demand")}>
-                <span>1</span>
-                {t("Check the research", "Revisa las fuentes")}
-                <ArrowRight size={18} />
-              </button>
-              <button onClick={() => setTab("build")}>
-                <span>2</span>
-                {t("Choose what to improve", "Elige qué mejorar")}
-                <ArrowRight size={18} />
-              </button>
-              <button onClick={() => setTab("humans")}>
-                <span>3</span>
-                {t("Ask real people", "Pregunta a personas")}
-                <ArrowRight size={18} />
-              </button>
-            </div>
+            <ReportLegend language={language} />
             <nav
               className="report-tabs"
               aria-label={t("Report sections", "Secciones del informe")}
             >
               {[
-                ["overview", "Overview", "Resumen"],
-                ["demand", "Demand", "Demanda"],
-                ["panel", "Perspectives", "Perspectivas"],
-                ["build", "Build next", "Qué construir"],
-                ["humans", "Real feedback", "Comentarios reales"],
-                ["activity", "Agent activity", "Actividad"],
+                ["overview", "01 · Start here", "01 · Empieza aquí"],
+                ["demand", "02 · Evidence", "02 · Evidencia"],
+                ["panel", "03 · Objections", "03 · Objeciones"],
+                ["build", "04 · Action plan", "04 · Plan de acción"],
+                ["humans", "05 · Ask people", "05 · Pregunta"],
+                ["activity", "Watch the process", "Ver el proceso"],
               ].map(([id, en, sp]) => (
                 <button
                   key={id}
-                  onClick={() => setTab(id)}
+                  onClick={() => openReportSection(id)}
                   aria-current={tab === id ? "page" : undefined}
                   className={tab === id ? "active" : ""}
                 >
@@ -808,537 +790,41 @@ export default function Studio() {
                 </button>
               ))}
             </nav>
-            <EvidenceSummary
-              review={review}
-              language={language}
-              onOpen={setSourceId}
-            />
+
             <div className="report-content" key={tab}>
               {tab === "overview" && (
-                <>
-                  <Readiness
-                    review={review}
-                    language={language}
-                    onSource={setSourceId}
-                  />
-                  <DecisionFrame report={r} language={language} />
-                  <div className="overview-grid">
-                    <article className="lead-card">
-                      <span className="detail-label">
-                        {t("The idea, understood", "Tu idea, comprendida")}
-                      </span>
-                      <h2>{r.brief.product}</h2>
-                      <p>{r.brief.problem}</p>
-                      <button
-                        className="text-button"
-                        onClick={() => setBrain("mira")}
-                      >
-                        {t("See what Mira read", "Ver lo que leyó Mira")}
-                        <ArrowUpRight size={18} />
-                      </button>
-                    </article>
-                    <article className="next-card">
-                      <span className="detail-label">
-                        {t("Your next best step", "Tu siguiente paso")}
-                      </span>
-                      <h3>{r.improvements[0]?.title}</h3>
-                      <p>{r.improvements[0]?.change}</p>
-                      <button
-                        className="primary"
-                        onClick={() => setTab("build")}
-                      >
-                        {t("Open your build plan", "Abrir plan de mejoras")}
-                        <ArrowRight size={19} />
-                      </button>
-                    </article>
-                  </div>
-                  <div className="two-columns">
-                    <article className="plain-card">
-                      <h3>{t("What already works", "Lo que ya funciona")}</h3>
-                      {r.brief.strengths.map((s, i) => (
-                        <p className="check-line" key={i}>
-                          <Check size={20} />
-                          {s}
-                        </p>
-                      ))}
-                    </article>
-                    <article className="plain-card">
-                      <h3>
-                        {t("What still needs proof", "Lo que falta demostrar")}
-                      </h3>
-                      {r.brief.assumptions.map((s, i) => (
-                        <p className="number-line" key={i}>
-                          <span>{i + 1}</span>
-                          {s}
-                        </p>
-                      ))}
-                    </article>
-                  </div>
-                  <div className="section-heading">
-                    <h2>
-                      {t(
-                        "The questions worth taking seriously.",
-                        "Las preguntas que merecen atención.",
-                      )}
-                    </h2>
-                  </div>
-                  {r.critique.map((c, i) => (
-                    <article className="concern" key={i}>
-                      <span className="concern-number">0{i + 1}</span>
-                      <div>
-                        <ConcernPriority concern={c} language={language} />
-                        <h3>{c.title}</h3>
-                        <EvidenceBadges
-                          concern={c}
-                          language={language}
-                          onOpen={setSourceId}
-                        />
-                        <p>{c.evidence}</p>
-                        <p>{c.risk}</p>
-                        {c.counterEvidence && (
-                          <p className="counter-evidence">
-                            <strong>
-                              {t(
-                                "What could change this view: ",
-                                "Qué podría cambiar esta opinión: ",
-                              )}
-                            </strong>
-                            {c.counterEvidence}
-                          </p>
-                        )}
-                        <div className="test-prompt">
-                          <strong>{t("Test it: ", "Compruébalo: ")}</strong>
-                          {c.test}
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                  <div className="evidence-foot">
-                    <h3>
-                      {t("What was actually reviewed", "Lo que se analizó")}
-                    </h3>
-                    {r.brief.evidence.map((s, i) => (
-                      <p key={i}>{s}</p>
-                    ))}
-                    {review.input.url && (
-                      <p>
-                        {t(
-                          "Prototype link provided for human testers. The agents did not browse or interact with the live application.",
-                          "Enlace del prototipo disponible para los participantes. Los agentes no navegaron ni interactuaron con la aplicación.",
-                        )}
-                      </p>
-                    )}
-                  </div>
-                </>
+                <ReportOverview
+                  review={review}
+                  language={language}
+                  onSource={setSourceId}
+                  onTab={openReportSection}
+                />
               )}
               {tab === "demand" && (
-                <>
-                  <div className="section-heading">
-                    <div>
-                      <h2>
-                        {t(
-                          "Is there a reason to want this?",
-                          "¿Hay una razón para querer esto?",
-                        )}
-                      </h2>
-                      <p>
-                        {t(
-                          "Look for evidence of a problem before treating an idea as validated.",
-                          "Busca evidencia de un problema antes de considerar validada una idea.",
-                        )}
-                      </p>
-                    </div>
-                    <span className="pill">
-                      {r.market.grounded
-                        ? t(
-                            "Public source signals",
-                            "Señales de fuentes públicas",
-                          )
-                        : t("Demand unverified", "Demanda sin verificar")}
-                    </span>
-                  </div>
-                  <div className="lead-card">
-                    <p className="large-copy">{r.market.summary}</p>
-                    {r.market.searchNotice && (
-                      <p className="search-notice">{r.market.searchNotice}</p>
-                    )}
-                  </div>
-                  <ResearchAudit report={r} language={language} />
-                  {r.market.signals.map((s, i) => (
-                    <article className="plain-card" key={i}>
-                      <span className="research-kind">
-                        {s.evidenceType === "provider-claim"
-                          ? t("Provider claim", "Afirmación del proveedor")
-                          : s.evidenceType === "research"
-                            ? t("Research finding", "Hallazgo de investigación")
-                            : t("Reported experience", "Experiencia relatada")}
-                      </span>
-                      <h3>{s.title}</h3>
-                      <p>{s.detail}</p>
-                      {s.relevance && (
-                        <p className="research-relevance">
-                          <strong>
-                            {t("For your idea: ", "Para tu idea: ")}
-                          </strong>
-                          {s.relevance}
-                        </p>
-                      )}
-                      <ResearchQuotes
-                        citations={s.citations}
-                        sources={r.market.sources}
-                        language={language}
-                      />
-                      <SourceLinks
-                        ids={s.sourceIds}
-                        sources={r.market.sources}
-                      />
-                    </article>
-                  ))}
-                  {r.market.alternatives.length > 0 && (
-                    <>
-                      <h2>
-                        {t(
-                          "What people might choose instead",
-                          "Lo que podrían elegir en su lugar",
-                        )}
-                      </h2>
-                      <div className="two-columns">
-                        {r.market.alternatives.map((a, i) => (
-                          <article className="plain-card" key={i}>
-                            <h3>{a.name}</h3>
-                            <p>{a.difference}</p>
-                            {a.targetUser && (
-                              <p>
-                                <strong>
-                                  {t("Who it serves: ", "A quién sirve: ")}
-                                </strong>
-                                {a.targetUser}
-                              </p>
-                            )}
-                            {a.switchingCost && (
-                              <p>
-                                <strong>
-                                  {t(
-                                    "Switching friction · hypothesis: ",
-                                    "Fricción al cambiar · hipótesis: ",
-                                  )}
-                                </strong>
-                                {a.switchingCost}
-                              </p>
-                            )}
-                            {a.opportunity && (
-                              <p className="research-relevance">
-                                <strong>
-                                  {t(
-                                    "Possible opening · inference: ",
-                                    "Posible oportunidad · inferencia: ",
-                                  )}
-                                </strong>
-                                {a.opportunity}
-                              </p>
-                            )}
-                            <ResearchQuotes
-                              citations={a.citations}
-                              sources={r.market.sources}
-                              language={language}
-                            />
-                            <SourceLinks
-                              ids={a.sourceIds}
-                              sources={r.market.sources}
-                            />
-                          </article>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  <article className="plain-card">
-                    <h3>
-                      {t(
-                        "The evidence to collect next",
-                        "La evidencia que falta recopilar",
-                      )}
-                    </h3>
-                    {r.market.unknowns.map((u, i) => (
-                      <p className="number-line" key={i}>
-                        <span>{i + 1}</span>
-                        {u}
-                      </p>
-                    ))}
-                    <button
-                      className="primary"
-                      onClick={() => setTab("humans")}
-                    >
-                      {t("Ask your audience", "Pregunta a tu público")}
-                      <ArrowRight size={20} />
-                    </button>
-                  </article>
-                  {r.market.sources.length > 0 && (
-                    <details className="research-library">
-                      <summary>
-                        {t(
-                          "Research sources & search terms",
-                          "Fuentes y consultas",
-                        )}{" "}
-                        · {r.market.sources.length}
-                      </summary>
-                      <p>
-                        {r.market.provider} ·{" "}
-                        {t(
-                          "Retrieved during this review",
-                          "Recuperadas durante este análisis",
-                        )}
-                      </p>
-                      {r.market.queries?.map((q) => (
-                        <span className="query-chip" key={q}>
-                          {q}
-                        </span>
-                      ))}
-                      {r.market.sources.map((source) => (
-                        <article key={source.id}>
-                          <a href={source.url} target="_blank" rel="noreferrer">
-                            <strong>{source.title}</strong>
-                            <ArrowUpRight size={18} />
-                          </a>
-                          <p>{source.excerpt}</p>
-                          <span>
-                            {new URL(source.url).hostname} · {source.id}
-                          </span>
-                        </article>
-                      ))}
-                    </details>
-                  )}
-                  {r.market.searchHtml && (
-                    <iframe
-                      title="Google Search suggestions"
-                      className="search-attribution"
-                      sandbox="allow-popups allow-popups-to-escape-sandbox"
-                      srcDoc={r.market.searchHtml}
-                    />
-                  )}
-                  <p className="evidence-note">
-                    {t(
-                      "Competitor activity and AI reactions do not prove demand for your product. Real usage, repeat use and meaningful commitments provide stronger evidence.",
-                      "La actividad de competidores y las reacciones de IA no demuestran demanda de tu producto. El uso real, repetido y los compromisos concretos aportan evidencia más sólida.",
-                    )}
-                  </p>
-                </>
+                <ReportResearch
+                  review={review}
+                  language={language}
+                  onSource={setSourceId}
+                  onTab={openReportSection}
+                />
               )}
               {tab === "panel" && (
-                <>
-                  <div className="section-heading">
-                    <div>
-                      <h2>
-                        {t(
-                          `${r.personas.length} simulated perspectives. Real people still needed.`,
-                          `${r.personas.length} perspectivas simuladas. Aún faltan personas reales.`,
-                        )}
-                      </h2>
-                      <p>
-                        {t(
-                          "Juno’s sub-agents explore different needs within your audience. Use their objections to design better real-world tests.",
-                          "Los subagentes de Juno exploran distintas necesidades de tu público. Usa sus objeciones para diseñar pruebas reales.",
-                        )}
-                      </p>
-                    </div>
-                    <span className="pill purple">
-                      {t("AI simulation", "Simulación de IA")}
-                    </span>
-                  </div>
-                  {(r.panelUnavailable?.length || 0) > 0 && (
-                    <p className="example-notice">
-                      {t(
-                        `${r.panelUnavailable!.length} of ${r.panelSize} perspectives were unavailable. This is a partial panel; no responses were invented.`,
-                        `${r.panelUnavailable!.length} de ${r.panelSize} perspectivas no estuvieron disponibles. El panel es parcial; no se inventaron respuestas.`,
-                      )}
-                    </p>
-                  )}
-                  <div className="persona-grid">
-                    {r.personas.map((p, i) => (
-                      <article className="persona-card" key={i}>
-                        <div className="persona-heading">
-                          <span className={`persona-monogram persona-${i}`}>
-                            {p.name.slice(0, 1)}
-                          </span>
-                          <div>
-                            <h3>{p.name}</h3>
-                            <span>{p.role}</span>
-                          </div>
-                        </div>
-                        {p.lens && (
-                          <span className="panel-lens">
-                            {PANEL_LABELS[p.lens][es ? 1 : 0]}
-                          </span>
-                        )}
-                        {p.ageRange && (
-                          <p className="persona-context">
-                            {t("Fictional age range: ", "Edad ficticia: ")}
-                            {p.ageRange} · {p.context}
-                          </p>
-                        )}
-                        <p className="situation">{p.situation}</p>
-                        <blockquote>“{p.reaction}”</blockquote>
-                        <h4>{t("What feels useful", "Lo que parece útil")}</h4>
-                        <p>{p.useful}</p>
-                        <h4>
-                          {t("What gets in the way", "Lo que dificulta el uso")}
-                        </h4>
-                        <p>{p.friction}</p>
-                        <h4>
-                          {t(
-                            "What they might use instead",
-                            "Lo que podrían usar en su lugar",
-                          )}
-                        </h4>
-                        <p>{p.alternative}</p>
-                        {p.nonUseReason && (
-                          <>
-                            <h4>
-                              {t(
-                                "Why they might never use it",
-                                "Por qué podrían no usarlo",
-                              )}
-                            </h4>
-                            <p>{p.nonUseReason}</p>
-                          </>
-                        )}
-                        {p.suggestedChange && (
-                          <>
-                            <h4>
-                              {t(
-                                "One change worth testing",
-                                "Un cambio que probar",
-                              )}
-                            </h4>
-                            <p>{p.suggestedChange}</p>
-                          </>
-                        )}
-                        <div className="persona-condition">
-                          <strong>
-                            {t(
-                              "The condition for trying it",
-                              "La condición para probarlo",
-                            )}
-                          </strong>
-                          <p>{p.condition}</p>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                  <button
-                    className="secondary"
-                    onClick={() => setTab("humans")}
-                  >
-                    {t(
-                      "Replace assumptions with real feedback",
-                      "Sustituye suposiciones por comentarios reales",
-                    )}
-                    <ArrowRight size={20} />
-                  </button>
-                </>
+                <ReportPanel
+                  review={review}
+                  language={language}
+                  onSource={setSourceId}
+                  onTab={openReportSection}
+                />
               )}
               {tab === "build" && (
-                <>
-                  <div className="section-heading">
-                    <div>
-                      <h2>
-                        {t(
-                          "A better next version starts here.",
-                          "Aquí empieza una versión mejor.",
-                        )}
-                      </h2>
-                      <p>
-                        {t(
-                          "Specific changes, in priority order. Check off what you’ve built.",
-                          "Cambios concretos, por prioridad. Marca lo que hayas completado.",
-                        )}
-                      </p>
-                    </div>
-                    <span>
-                      {checks.length}/{r.improvements.length}{" "}
-                      {t("complete", "completados")}
-                    </span>
-                  </div>
-                  {r.improvements.map((i, n) => (
-                    <article
-                      className={`build-card ${checks.includes(i.title) ? "complete" : ""}`}
-                      key={n}
-                    >
-                      <label className="build-check">
-                        <input
-                          type="checkbox"
-                          checked={checks.includes(i.title)}
-                          onChange={() => toggleCheck(i.title)}
-                          aria-label={`${t("Complete", "Completar")}: ${i.title}`}
-                        />
-                        <span>{String(n + 1).padStart(2, "0")}</span>
-                      </label>
-                      <div>
-                        <div className="card-top">
-                          <h3>{i.title}</h3>
-                          <span className="pill">{i.effort}</span>
-                        </div>
-                        <p className="large-copy">{i.change}</p>
-                        <p>{i.why}</p>
-                        {i.firstStep && (
-                          <p className="first-step">
-                            <strong>
-                              {t("Start here: ", "Empieza aquí: ")}
-                            </strong>
-                            {i.firstStep}
-                          </p>
-                        )}
-                        {i.tradeoff && (
-                          <p>
-                            <strong>
-                              {t("Tradeoff: ", "Lo que sacrificas: ")}
-                            </strong>
-                            {i.tradeoff}
-                          </p>
-                        )}
-                        <div className="plan-provenance">
-                          {(i.findingIds || []).map((id) => {
-                            const concern = r.critique.find((c) => c.id === id);
-                            return concern ? (
-                              <div key={id}>
-                                <span>
-                                  {t("Addresses: ", "Resuelve: ")}
-                                  {concern.title}
-                                </span>
-                                <EvidenceBadges
-                                  concern={concern}
-                                  language={language}
-                                  onOpen={setSourceId}
-                                />
-                              </div>
-                            ) : null;
-                          })}
-                        </div>
-                        <div className="test-prompt">
-                          <strong>
-                            {t("Done when: ", "Completado cuando: ")}
-                          </strong>
-                          {i.check}
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                  <AlternativeDirections report={r} language={language} />
-                  <div className="closing-line">
-                    <h3>
-                      {t(
-                        "Built something better? Put it back to the test.",
-                        "¿Ya lo mejoraste? Ponlo a prueba otra vez.",
-                      )}
-                    </h3>
-                    <button
-                      className="primary"
-                      onClick={() => openForm(review.input)}
-                    >
-                      {t("Test the next version", "Probar la próxima versión")}
-                      <ArrowUpRight size={20} />
-                    </button>
-                  </div>
-                </>
+                <ReportBuild
+                  review={review}
+                  language={language}
+                  onSource={setSourceId}
+                  onTab={openReportSection}
+                  checks={checks}
+                  onCheck={toggleCheck}
+                />
               )}
               {tab === "activity" && (
                 <AgentReplay language={language} report={r} onOpen={setBrain} />
@@ -1502,60 +988,5 @@ export default function Studio() {
         </Modal>
       )}
     </>
-  );
-}
-function SourceLinks({
-  ids,
-  sources,
-}: {
-  ids: string[];
-  sources: Review["report"]["market"]["sources"];
-}) {
-  return (
-    <div className="source-links">
-      {ids.map((id) => {
-        const s = sources.find((s) => s.id === id);
-        return s ? (
-          <a key={id} href={s.url} target="_blank" rel="noreferrer">
-            {s.title}
-            <ArrowUpRight size={16} />
-          </a>
-        ) : null;
-      })}
-    </div>
-  );
-}
-
-function ResearchQuotes({
-  citations = [],
-  sources,
-  language,
-}: {
-  citations?: { sourceId: string; quote: string }[];
-  sources: Review["report"]["market"]["sources"];
-  language: Language;
-}) {
-  return (
-    <div className="research-quotes">
-      {citations.map((c, i) => {
-        const source = sources.find((s) => s.id === c.sourceId);
-        return source ? (
-          <details key={i}>
-            <summary>
-              {language === "es"
-                ? "Ver el extracto de apoyo"
-                : "Inspect supporting excerpt"}{" "}
-              · {new URL(source.url).hostname}
-            </summary>
-            <blockquote>{c.quote}</blockquote>
-            <p>
-              {language === "es"
-                ? "Coincide con el texto recuperado. La interpretación aún puede necesitar verificación."
-                : "Matched against retrieved source text. The interpretation may still need checking."}
-            </p>
-          </details>
-        ) : null;
-      })}
-    </div>
   );
 }

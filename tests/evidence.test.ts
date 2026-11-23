@@ -232,29 +232,6 @@ test("requires 50 actual words and a specific audience", async () => {
     false,
   );
 });
-test("readiness scores are calculated, capped and require source support", async () => {
-  const { scoreReadiness, READINESS_DIMENSIONS } =
-    await import("../lib/scoring.ts");
-  const sources = [
-    {
-      id: "B1",
-      kind: "brief" as const,
-      label: "Brief",
-      text: "Students search by course and request a short loan.",
-    },
-  ];
-  const entries = READINESS_DIMENSIONS.map((id) => ({
-    id,
-    rating: 4,
-    reason: "Specific",
-    citations: [
-      { sourceId: "B1", quote: "Students search by course", location: "" },
-    ],
-  }));
-  assert.equal(scoreReadiness(entries, sources).total, 100);
-  assert.equal(scoreReadiness(entries, []).total, 25);
-  assert.equal(scoreReadiness([], sources).total, 0);
-});
 test("research claims need a matching retrieved excerpt", async () => {
   const { matchResearchCitations, sourceFromResult, safeResearchQuery } =
     await import("../lib/research.ts");

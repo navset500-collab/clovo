@@ -14,7 +14,8 @@ export default function AgentReplay({
 }) {
   const events = report.runEvents || [],
     [position, setPosition] = useState(events.length),
-    [playing, setPlaying] = useState(false);
+    [playing, setPlaying] = useState(false),
+    [pace, setPace] = useState<"quick" | "guided">("guided");
   const es = language === "es",
     visible = events.slice(0, position),
     replaying = position < events.length;
@@ -24,9 +25,10 @@ export default function AgentReplay({
       setPlaying(false);
       return;
     }
-    const timer = setTimeout(() => setPosition((p) => p + 1), 2300);
+    const delay = pace === "guided" ? 180000 / Math.max(1, events.length) : 900;
+    const timer = setTimeout(() => setPosition((p) => p + 1), delay);
     return () => clearTimeout(timer);
-  }, [playing, position, events.length]);
+  }, [playing, position, events.length, pace]);
   const statuses: Partial<Record<AgentId, AgentStatus>> = {};
   visible
     .filter((e) => e.persona === undefined && e.kind !== "activity")
@@ -52,8 +54,16 @@ export default function AgentReplay({
           </p>
         </div>
         <div className="row-actions">
+          <label className="replay-pace">
+            {es ? "Velocidad de lectura" : "Reading pace"}
+            <select value={pace} onChange={e => setPace(e.target.value as "quick" | "guided")}>
+              <option value="guided">{es ? "Recorrido de 3 minutos" : "3-minute guided replay"}</option>
+              <option value="quick">{es ? "Recorrido rápido" : "Quick replay"}</option>
+            </select>
+          </label>
           <button
             className="secondary"
+            disabled={!events.length}
             onClick={() => {
               if (position >= events.length) setPosition(0);
               setPlaying((p) => !p);
@@ -86,6 +96,11 @@ export default function AgentReplay({
             </button>
           )}
         </div>
+      </div>
+      <div className="replay-progress" aria-label={es ? "Progreso de la reproducción" : "Replay progress"}>
+        <span>{es ? "Eventos grabados" : "Recorded events"}: {position} / {events.length}</span>
+        <progress max={Math.max(1, events.length)} value={position} />
+        <span>{es ? "El ritmo de lectura no representa el tiempo de cálculo." : "Reading pace is separate from the original analysis time."}</span>
       </div>
       <LiveRun
         language={language}

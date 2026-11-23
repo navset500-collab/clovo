@@ -224,7 +224,7 @@ test("a specific next step survives score calculation without raising unsupporte
     ],
     sources,
   );
-  assert.equal(score.dimensions[0].rating, 1);
+  assert.equal(score.dimensions[0].rating, 0);
   assert.equal(
     score.dimensions[0].nextStep,
     "Describe a recent missed pickup.",

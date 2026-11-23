@@ -105,7 +105,8 @@ async function updateRecord<T>(
 }
 const visitorSchema = z.object({
   startedAt: counter,
-  completed: counter.max(5),
+  completed: counter.max(10),
+  completedAt: z.array(counter).max(10).optional(),
   active: z.object({ id: z.string(), expires: counter }).nullable(),
 });
 const update = (
@@ -195,7 +196,7 @@ export async function reserve(
   let visitorSettled = false;
   return async (completed = false, failureCode = "") => {
     // Persist personal completion BEFORE delivering a report. If this write fails,
-    // do not claim a completed report or silently lose the five-review counter.
+    // do not claim a completed report or silently lose the completed-review counter.
     if (visitorPath && !visitorSettled) {
       await updateVisitor(visitorPath, (s) => {
         if (!s) throw new Error("Missing visitor reservation");

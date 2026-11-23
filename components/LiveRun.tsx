@@ -43,9 +43,9 @@ export default function LiveRun({
     complete = AGENTS.every((a) => statuses[a.id] === "done");
   useEffect(() => {
     if (!follow) return;
-    const latest = events
-      .filter((e) => !Number.isInteger(e.persona) && e.status === "running")
-      .at(-1);
+    if (!events.length) { setSelected("mira"); return; }
+    const latest = events.filter(e => e.persona === undefined && statuses[e.agent] === "running").at(-1)
+      || events.filter(e => e.persona === undefined && e.kind !== "activity" && (e.status === "done" || e.status === "error")).at(-1);
     if (latest) setSelected(latest.agent);
   }, [events.length, follow]);
   useEffect(() => {
@@ -262,6 +262,15 @@ export default function LiveRun({
             )}
           </div>
           <p className="live-job">{a.job[es ? 1 : 0]}</p>
+          <div className={`agent-delivery ${statuses[selected] || "waiting"}`} key={`${selected}-${statuses[selected]}`}>
+            <span className="delivery-signal" aria-hidden="true" />
+            <div>
+              <strong>{statuses[selected] === "done" ? t("Result received", "Resultado recibido") : statuses[selected] === "running" ? t(replay ? "Recorded working stage" : "Processing your project", replay ? "Etapa de trabajo grabada" : "Procesando tu proyecto") : statuses[selected] === "error" ? t("Result unavailable", "Resultado no disponible") : t("Waiting for earlier findings", "Esperando hallazgos anteriores")}</strong>
+              <span>{statuses[selected] === "done"
+                ? t("Open the finding below. Its sources and limits travel with it.", "Abre el hallazgo abajo. Incluye sus fuentes y limitaciones.")
+                : t(replay ? "Assigned checks appear below. This replay reveals previously recorded results." : "Assigned checks appear below. Results arrive from the server when ready.", replay ? "Las comprobaciones asignadas aparecen abajo. Esta reproducción muestra resultados ya grabados." : "Las comprobaciones asignadas aparecen abajo. Los resultados llegan del servidor cuando están listos.")}</span>
+            </div>
+          </div>
           <WorkNotes
             events={events}
             selected={selected}
@@ -270,7 +279,8 @@ export default function LiveRun({
             replay={replay}
           />
 
-          <details className="live-responsibilities">
+          <details className="live-responsibilities" key={selected} open={statuses[selected] === "running"}>
+
             <summary>
               {t("What this agent checks", "Qué comprueba este agente")}
             </summary>
@@ -366,8 +376,8 @@ export default function LiveRun({
               <p>
                 {statuses[selected] === "running"
                   ? t(
-                      "The completed result will appear here. You can explore the other agents while this one works.",
-                      "El resultado aparecerá aquí. Puedes explorar los otros agentes mientras este trabaja.",
+                      replay ? "The saved result appears at its recorded handoff. Use Next event to advance." : "The completed result will appear here. You can explore the other agents while this one works.",
+                      replay ? "El resultado guardado aparece al llegar a su entrega grabada. Pulsa Siguiente evento para avanzar." : "El resultado aparecerá aquí. Puedes explorar los otros agentes mientras este trabaja.",
                     )
                   : statuses[selected] === "error"
                     ? t(
@@ -414,8 +424,8 @@ export default function LiveRun({
             {events.length === 0 ? (
               <p>
                 {t(
-                  "Your project is being sent to Mira.",
-                  "Tu proyecto se está enviando a Mira.",
+                  replay ? "Replay is at the beginning. Press Next event to advance." : "Your project is being sent to Mira.",
+                  replay ? "La reproducción está al inicio. Pulsa Siguiente evento para avanzar." : "Tu proyecto se está enviando a Mira.",
                 )}
               </p>
             ) : (

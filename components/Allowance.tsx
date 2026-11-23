@@ -116,22 +116,22 @@ export default function Allowance({
               <strong>{usage.reviewsRemaining}</strong>
               <span>
                 {t(
-                  "of 5 completed reviews remaining",
-                  "de 5 análisis completos disponibles",
+                  "of 10 completed reviews remaining",
+                  "de 10 análisis completos disponibles",
                 )}
               </span>
             </div>
             <div>
-              <strong>5h</strong>
-              <span>{t("per review window", "por periodo de análisis")}</span>
+              <strong>24h</strong>
+              <span>{t("rolling window", "periodo móvil")}</span>
             </div>
           </div>
           <p>
             {usage.personalResetAt
-              ? `${t("Your next 5 reviews: ", "Tus próximos 5 análisis: ")}${date(usage.personalResetAt)}.`
+              ? `${t("Next review slot returns: ", "Próximo análisis disponible: ")}${date(usage.personalResetAt)}.`
               : t(
-                  "Your five-hour window starts when you begin a review.",
-                  "Tu periodo de cinco horas empieza al iniciar un análisis.",
+                  "Each completed review becomes available again 24 hours after completion.",
+                  "Cada análisis vuelve a estar disponible 24 horas después de completarlo.",
                 )}
           </p>
           {usage.personalCode && (
@@ -141,8 +141,8 @@ export default function Allowance({
             <div className="service-availability" role="status">
               <strong>
                 {t(
-                  "Service availability — separate from your five reviews",
-                  "Disponibilidad del servicio — independiente de tus cinco análisis",
+                  "Service availability — separate from your ten reviews",
+                  "Disponibilidad del servicio — independiente de tus diez análisis",
                 )}
               </strong>
               <p>{errorText(usage.serviceCode, language)}</p>
@@ -159,14 +159,14 @@ export default function Allowance({
       {paused && <p role="status">{errorText("review_paused", language)}</p>}
       <p>
         {t(
-          "Only completed reports use one of your five reviews. Failed, cancelled and clarification-only attempts do not. Your allowance is tied to this browser, so people sharing your Wi-Fi have separate review counts.",
-          "Solo los informes completos consumen uno de tus cinco análisis. Los fallos, cancelaciones y solicitudes de aclaración no cuentan. El límite corresponde a este navegador; quienes comparten tu Wi-Fi tienen contadores separados.",
+          "Only completed reports use one of your ten reviews. Failed, cancelled and clarification-only attempts do not. Your allowance is tied to this browser, so people sharing your Wi-Fi have separate review counts.",
+          "Solo los informes completos consumen uno de tus diez análisis. Los fallos, cancelaciones y solicitudes de aclaración no cuentan. El límite corresponde a este navegador; quienes comparten tu Wi-Fi tienen contadores separados.",
         )}
       </p>
       <p className="allowance-footnote">
         {t(
-          "Clovo runs on free services. To conserve their quotas, the app allows 20 review attempts per month across all visitors. Failed attempts may use those resources, but do not use one of your five completed reviews. Checking availability uses no AI and does not count as an attempt.",
-          "Clovo utiliza servicios gratuitos. Para conservar sus cuotas, la aplicación permite 20 intentos de análisis al mes entre todos los visitantes. Los intentos fallidos pueden consumir esos recursos, pero no uno de tus cinco análisis completos. Consultar la disponibilidad no usa IA ni cuenta como intento.",
+          "Clovo runs on free services. To conserve their quotas, the app allows 20 review attempts per month across all visitors. Failed attempts may use those resources, but do not use one of your ten completed reviews. Checking availability uses no AI and does not count as an attempt.",
+          "Clovo utiliza servicios gratuitos. Para conservar sus cuotas, la aplicación permite 20 intentos de análisis al mes entre todos los visitantes. Los intentos fallidos pueden consumir esos recursos, pero no uno de tus diez análisis completos. Consultar la disponibilidad no usa IA ni cuenta como intento.",
         )}
       </p>
     </section>

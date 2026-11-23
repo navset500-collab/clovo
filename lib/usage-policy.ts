@@ -181,7 +181,6 @@ export function allowanceSnapshot(
   const day = new Date(now).toISOString().slice(0, 10);
   const sameDay = state?.day === day;
   const starts = sameDay ? state.networks[network] || 0 : 0;
-  const completed = sameDay ? state.completedNetworks?.[network] || 0 : 0;
   let code = "";
   const monthlyRemaining = Math.max(
     0,
@@ -192,7 +191,6 @@ export function allowanceSnapshot(
     USAGE_LIMITS.daily - (sameDay ? state.daily : 0),
   );
   const networkRemaining = Math.max(0, USAGE_LIMITS.perNetworkDaily - starts);
-  const reviewsRemaining = Math.max(0, 5 - completed);
   if (!monthlyRemaining) code = "global_monthly";
   else if (!dailyRemaining) code = "global_daily";
   else if ((state?.providerPauseUntil || 0) > now)
@@ -209,7 +207,6 @@ export function allowanceSnapshot(
     monthlyRemaining,
     dailyRemaining,
     networkRemaining,
-    reviewsRemaining,
     resetAt: new Date(resetAt).toISOString(),
   };
 }

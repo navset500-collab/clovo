@@ -153,12 +153,14 @@ export function AlternativeDirections({
             </span>
             <h3>{d.title}</h3>
             <p>{d.approach}</p>
+            <div className="action-inset"><strong>{es ? "La prueba más pequeña" : "Smallest test"}</strong><p>{d.test}</p></div>
+            <details className="card-disclosure">
+            <summary>{es ? "Público, razonamiento y sacrificios" : "Audience, reasoning & tradeoffs"}</summary>
             <dl>
               {[
                 [es ? "Para quién" : "For whom", d.audience],
                 [es ? "Por qué podría funcionar" : "Why it might help", d.why],
                 [es ? "Lo que sacrificas" : "The tradeoff", d.tradeoff],
-                [es ? "La prueba más pequeña" : "Smallest test", d.test],
               ].map(([label, text]) => (
                 <div key={label}>
                   <dt>{label}</dt>
@@ -174,6 +176,7 @@ export function AlternativeDirections({
                 </span>
               ))}
             </div>
+            </details>
           </article>
         ))}
       </div>

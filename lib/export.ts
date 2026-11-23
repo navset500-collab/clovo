@@ -1,11 +1,12 @@
-import type { Review, HumanResponse } from "./types";
+import type { Review, HumanResponse } from "./types.ts";
+import { CHECK_LABELS } from "./scoring.ts";
 export function reportMarkdown(
   review: Review,
   responses: HumanResponse[] = [],
 ) {
   const r = review.report;
   const score = r.readiness
-    ? `## Readiness to test: ${r.readiness.total}/100\nA rubric assessment, not a prediction of demand or success.\n${r.readiness.dimensions.map((d) => `- ${d.id}: ${d.points}/25 — ${d.reason}\nNext step: ${d.nextStep || "Not recorded"}\n${d.citations.map((c) => `  [${c.sourceId}] ${c.quote}`).join("\n")}`).join("\n")}\n\n`
+    ? `## Readiness to test: ${r.readiness.total}/100\nA rubric assessment, not a prediction of demand or success.\n${r.readiness.version === 2 ? "16 quote-supported criteria; 6.25 points each. No minimum score. Quote matches establish provenance, not truth." : "Saved report using the earlier rubric."}\n${r.readiness.dimensions.map((d) => `- ${d.id}: ${d.points}/25 — ${d.reason}\nNext step: ${d.nextStep || "Not recorded"}\n${(d.checks || []).map(c => `  - [${c.met ? "x" : " "}] ${CHECK_LABELS[c.id]?.[review.input.language === "es" ? 1 : 0] || c.id}`).join("\n")}\n${d.citations.map((c) => `  [${c.sourceId}] ${c.quote}`).join("\n")}`).join("\n")}\n\n`
     : "";
   const research = `## Research findings\n${r.market.signals.map((s) => `### ${s.title}\n${s.detail}\n${s.relevance || ""}\nEvidence type: ${s.evidenceType || "source"}\n${(s.citations || []).map((c) => `[${c.sourceId}] ${c.quote}`).join("\n")}`).join("\n\n")}\n\n## Competing alternatives\n${r.market.alternatives.map((a) => `- ${a.name}: ${a.difference}\nAudience: ${a.targetUser || "Not recorded"}\nSwitching hypothesis: ${a.switchingCost || "Not recorded"}\nPossible opening: ${a.opportunity || "Not recorded"}\n${(a.citations || []).map((c) => `[${c.sourceId}] ${c.quote}`).join("\n")}`).join("\n")}\n\n`;
 
