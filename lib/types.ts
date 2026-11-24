@@ -227,6 +227,7 @@ export type AnalysisEvent =
       message: string;
       code?: string;
       reference?: string;
+      resetAt?: string;
       agent?: AgentId;
     };
 export type Study = {

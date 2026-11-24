@@ -20,6 +20,7 @@ export { UsageError } from "./usage-policy.ts";
 const counter = z.number().int().nonnegative();
 const stateSchema = z.object({
   providerPauseUntil: counter.optional(),
+  providerPauseCode: z.enum(["service_provider_quota", "service_provider_unavailable"]).optional(),
   version: z.literal(1),
   total: counter,
   day: z.string(),
@@ -194,7 +195,7 @@ export async function reserve(
     );
   }
   let visitorSettled = false;
-  return async (completed = false, failureCode = "") => {
+  return async (completed = false, failureCode = "", retryAt?: number) => {
     // Persist personal completion BEFORE delivering a report. If this write fails,
     // do not claim a completed report or silently lose the completed-review counter.
     if (visitorPath && !visitorSettled) {
@@ -210,13 +211,17 @@ export async function reserve(
       await update(path, (s) => {
         if (!s) throw new Error("Missing usage record");
         const next = settleUsage(s, id, day, false);
-        if (["provider_unavailable", "provider_quota"].includes(failureCode))
-          next.providerPauseUntil = Math.max(
-            next.providerPauseUntil || 0,
-            Date.now() + 120000,
-          );
+        if (["provider_unavailable", "provider_quota"].includes(failureCode)) {
+          const until = Math.max(Date.now() + 120000, retryAt || 0);
+          if (until >= (next.providerPauseUntil || 0)) {
+            next.providerPauseUntil = until;
+            next.providerPauseCode = failureCode === "provider_quota"
+              ? "service_provider_quota" : "service_provider_unavailable";
+          }
+        }
         return next;
       });
+      snapshotCache = undefined;
     } catch {
       /* Keep the cost reservation; the concurrency lease expires. */
     }
@@ -274,6 +279,8 @@ export async function readAllowance(request: Request, visitorKey: string) {
     });
     await snapshotPending;
   }
+  if (!snapshotCache || snapshotCache.path !== path) throw new Error("Usage unavailable");
+  const sharedState = snapshotCache.state;
   const address =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const network = createHmac("sha256", secret)
@@ -290,7 +297,7 @@ export async function readAllowance(request: Request, visitorKey: string) {
     ? visitorSchema.parse(await new Response(record.stream).json())
     : null;
   const personal = visitorSnapshot(visitor, now);
-  const shared = allowanceSnapshot(snapshotCache!.state, network, now);
+  const shared = allowanceSnapshot(sharedState, network, now);
   return {
     ...personal,
     code: personal.personalCode || shared.code,

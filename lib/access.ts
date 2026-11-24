@@ -9,7 +9,9 @@ export function owns(key: string, hash: string) {
 }
 export const validId = (id: string) => /^[a-f0-9]{48}$/.test(id);
 const hits = new Map<string, { count: number; until: number }>();
-export function guard(request: Request, bucket: string, max = 20) {
+// Best-effort local burst brake only. The managed Vercel WAF enforces the
+// distributed API limit; completed reviews use the atomic durable ledger.
+export function guard(request: Request, bucket: string, max = 20, now = Date.now()) {
   const origin = request.headers.get("origin");
   if (request.headers.get("sec-fetch-site") === "cross-site")
     return "Invalid request origin.";
@@ -24,13 +26,12 @@ export function guard(request: Request, bucket: string, max = 20) {
       return "Invalid request origin.";
     }
   }
-  const now = Date.now();
-  for (const [k, v] of hits) if (v.until < now) hits.delete(k);
+  for (const [k, v] of hits) if (v.until <= now) hits.delete(k);
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "local";
-  const k = bucket + ip;
-  const hit = hits.get(k) || { count: 0, until: now + 3600000 };
+  const k = `${bucket}:${ip}`;
+  const hit = hits.get(k) || { count: 0, until: now + 60000 };
   if (hit.count >= max)
-    return "The demo request limit has been reached. Please try later.";
+    return "Too many requests. Wait one minute before trying again.";
   if (hits.size > 10000) return "Please try again later.";
   hits.set(k, { ...hit, count: hit.count + 1 });
   return null;

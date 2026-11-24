@@ -5,7 +5,7 @@ import { guard } from "@/lib/access";
 import { errorCode } from "@/lib/messages";
 
 export async function GET(request: Request) {
-  const denied = guard(request, "status", 90);
+  const denied = guard(request, "status", 120);
   if (denied)
     return Response.json(
       { code: errorCode(denied) },

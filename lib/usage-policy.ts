@@ -18,6 +18,7 @@ export type QuotaPolicy = {
 };
 export type UsageState = {
   providerPauseUntil?: number;
+  providerPauseCode?: "service_provider_quota" | "service_provider_unavailable";
   version: 1;
   total: number;
   day: string;
@@ -142,7 +143,7 @@ export function reserveUsage(
       "The AI service is temporarily unavailable.",
       503,
       Math.ceil((next.providerPauseUntil! - now) / 1000),
-      "service_provider_unavailable",
+      next.providerPauseCode || "service_provider_unavailable",
       new Date(next.providerPauseUntil!).toISOString(),
     );
   next.total++;
@@ -193,14 +194,19 @@ export function allowanceSnapshot(
   const networkRemaining = Math.max(0, USAGE_LIMITS.perNetworkDaily - starts);
   if (!monthlyRemaining) code = "global_monthly";
   else if (!dailyRemaining) code = "global_daily";
+  else if (!networkRemaining) code = "network_daily";
   else if ((state?.providerPauseUntil || 0) > now)
-    code = "service_provider_unavailable";
+    code = state?.providerPauseCode || "service_provider_unavailable";
+  else if (state?.active.filter((a) => a.expires > now).length &&
+    (state.active.filter((a) => a.expires > now).length >= USAGE_LIMITS.concurrent ||
+      state.active.some((a) => a.expires > now && a.network === network))) code = "team_busy";
   const date = new Date(now);
   const resetAt =
     code === "global_monthly"
       ? Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1)
-      : code === "service_provider_unavailable"
+      : code.startsWith("service_provider_")
         ? state!.providerPauseUntil!
+        : code === "team_busy" ? now + 30000
         : Date.parse(day + "T00:00:00.000Z") + 86400000;
   return {
     code,

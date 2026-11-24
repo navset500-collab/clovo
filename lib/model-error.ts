@@ -3,9 +3,13 @@
 export class ModelError extends Error {
   code: string;
   status?: number;
-  constructor(code: string, status?: number) {
+  retryAt?: number;
+  quotaKind?: "daily" | "minute" | "unknown";
+  constructor(code: string, status?: number, retryAt?: number, quotaKind?: "daily" | "minute" | "unknown") {
     super(code);
     this.code = code;
     this.status = status;
+    this.retryAt = retryAt;
+    this.quotaKind = quotaKind;
   }
 }

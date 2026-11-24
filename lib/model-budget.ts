@@ -24,6 +24,7 @@ export function createModelBudget(
       if (
         !(error instanceof ModelError) ||
         error.status !== 503 ||
+        (error.retryAt || 0) > Date.now() + delayMs ||
         retryUsed ||
         calls >= maxCalls ||
         signal?.aborted

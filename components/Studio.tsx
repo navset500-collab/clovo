@@ -32,6 +32,7 @@ import AgentReplay from "./AgentReplay";
 import LiveRun from "./LiveRun";
 import Walkthrough, { ProductPreview } from "./Walkthrough";
 import ProjectForm from "./ProjectForm";
+import Allowance from "./Allowance";
 import {
   ReportOverview,
   ReportResearch,
@@ -41,6 +42,7 @@ import {
 } from "./ReportViews";
 import { EvidenceDrawer } from "./Evidence";
 import { prepareFile } from "@/lib/files";
+import { reviewHttpFailure } from "@/lib/review-http";
 import { errorText, errorHeading, reviewErrorCode } from "@/lib/messages";
 import { reportMarkdown } from "@/lib/export";
 import { checkAllowance } from "@/lib/allowance-status";
@@ -81,6 +83,7 @@ export default function Studio() {
     [errorReset, setErrorReset] = useState<string | undefined>(),
     [failureDetail, setFailureDetail] = useState<{
       reference?: string;
+      code?: string;
       agent?: AgentId;
     } | null>(null),
     [status, setStatus] = useState<Partial<Record<AgentId, AgentStatus>>>({}),
@@ -94,6 +97,7 @@ export default function Studio() {
   const abort = useRef<AbortController | null>(null),
     es = language === "es",
     t = (a: string, b: string) => (es ? b : a);
+  const displayedError = error || (recovery ? failureDetail?.code : "") || "";
   useEffect(() => {
     try {
       const l = localStorage.getItem("clovo-language");
@@ -160,7 +164,11 @@ export default function Studio() {
           }
         : { ...draft, language },
     );
-    setError("");
+    if (!recovery) {
+      setError("");
+      setErrorReset(undefined);
+      setFailureDetail(null);
+    }
     setForm(true);
   }
   function showReview(r: Review) {
@@ -240,9 +248,9 @@ export default function Studio() {
         signal: controller.signal,
       });
       if (!response.ok) {
-        const j = await response.json();
-        setErrorReset(j.resetAt);
-        throw new Error(j.code || j.error);
+        const failure = await reviewHttpFailure(response);
+        setErrorReset(failure.resetAt);
+        throw new Error(failure.code);
       }
       setRecovery(null); // The server has accepted and consumed this checkpoint.
       const reader = response.body!.getReader(),
@@ -306,7 +314,8 @@ export default function Studio() {
           setForm(true);
           finished = true;
         } else if (event.type === "error") {
-          setFailureDetail({ reference: event.reference, agent: event.agent });
+          setFailureDetail({ reference: event.reference, agent: event.agent, code: event.code });
+          setErrorReset(event.resetAt);
           throw new Error(event.code || event.message);
         } else if (event.type === "result") {
           const result = {
@@ -370,6 +379,7 @@ export default function Studio() {
     e.preventDefault();
     if (!recovery || resuming) return;
     setResuming(true);
+    setErrorReset(undefined);
     try {
       if (Date.parse(recovery.expiresAt) <= Date.now()) {
         setRecovery(null);
@@ -483,8 +493,8 @@ export default function Studio() {
             {(error || recovery) && (
               <div className="error page-error" role="alert">
                 <div>
-                  <strong>{error ? errorHeading(error, language) : t("An unfinished review is available", "Hay un análisis pendiente")}</strong>
-                  {error && <p>{errorText(error, language)}</p>}
+                  <strong>{displayedError ? errorHeading(displayedError, language) : t("An unfinished review is available", "Hay un análisis pendiente")}</strong>
+                  {displayedError && <p>{errorText(displayedError, language)}</p>}
                   {recovery && (
                     <div className="recovery-actions">
                       <p>
@@ -536,9 +546,11 @@ export default function Studio() {
                       {failureDetail.reference}
                     </p>
                   )}
-                  {errorReset && (
+                  {displayedError && errorReset && (
                     <p>
-                      {t("Resets: ", "Se reinicia: ")}
+                      {displayedError === "visitor_completed"
+                        ? t("Your next review slot: ", "Tu próximo análisis: ")
+                        : t("Check service availability after: ", "Consulta la disponibilidad después de: ")}
                       {new Date(errorReset).toLocaleString(es ? "es" : "en", {
                         month: "short",
                         day: "numeric",
@@ -553,13 +565,16 @@ export default function Studio() {
                   className="text-button"
                   onClick={() => {
                     setForm(true);
-                    setError("");
+                    if (!recovery) { setError(""); setErrorReset(undefined); setFailureDetail(null); }
                   }}
                 >
                   {t("Return to your brief", "Volver a tu texto")}
                   <ArrowRight size={18} />
                 </button>
               </div>
+            )}
+            {!form && (recovery || failureDetail) && (
+              <Allowance language={language} onCode={() => {}} onBlocked={() => {}} />
             )}
             <section className="three-steps">
               <div>

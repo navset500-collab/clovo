@@ -43,11 +43,12 @@ export async function POST(request: Request) {
       },
       { status: 503 },
     );
-  const denied = guard(request, "analysis", 10);
+  const denied = guard(request, "analysis", 30);
   if (denied)
     return Response.json(
       { error: denied, code: errorCode(denied) },
-      { status: denied === "Invalid request origin." ? 403 : 429 },
+      { status: denied === "Invalid request origin." ? 403 : 429,
+        headers: { "Retry-After": "60", "Cache-Control": "no-store" } },
     );
   let raw;
   try {
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
       return Response.json({ code: "recovery_invalid" }, { status: 400 });
     }
   }
-  let release: (completed?: boolean, failureCode?: string) => Promise<void>;
+  let release: (completed?: boolean, failureCode?: string, retryAt?: number) => Promise<void>;
   try {
     release = await reserve(
       request,
@@ -136,6 +137,8 @@ export async function POST(request: Request) {
   let open = true;
   let completed = false;
   let failureCode = "";
+  let failureRetryAt: number | undefined;
+  let failureSettled = false;
   let failureAgent: AgentId | undefined;
   const reviewId = recovery?.reviewId || crypto.randomUUID();
   const stream = new ReadableStream({
@@ -616,13 +619,24 @@ export async function POST(request: Request) {
           signal.aborted && signal.reason?.name === "TimeoutError"
             ? "review_timeout"
             : reviewErrorCode(e);
+        failureRetryAt = e instanceof ModelError ? e.retryAt : undefined;
+        if (["provider_quota", "provider_unavailable"].includes(failureCode))
+          failureRetryAt = Math.max(failureRetryAt || 0, Date.now() + 120000);
         lifetime.abort();
         console.error("Review interrupted", {
           code: failureCode,
           reviewId,
           agent: failureAgent,
           status: e instanceof ModelError ? e.status : undefined,
+          quotaKind: e instanceof ModelError ? e.quotaKind : undefined,
+          retryAt: failureRetryAt ? new Date(failureRetryAt).toISOString() : undefined,
         });
+        // Release the unfinished personal reservation and publish the shared
+        // pause before the client checks availability from the error screen.
+        try {
+          await release(false, failureCode, failureRetryAt);
+          failureSettled = true;
+        } catch { /* Finally retries cleanup; the lease also expires. */ }
         if (
           ![
             "review_cancelled",
@@ -646,11 +660,12 @@ export async function POST(request: Request) {
           reference: reviewId.slice(0, 8),
           agent: failureAgent,
           message: errorText(failureCode, input.language),
+          resetAt: failureRetryAt ? new Date(failureRetryAt).toISOString() : undefined,
         });
       } finally {
         lifetime.abort();
         try {
-          await release(false, failureCode);
+          if (!failureSettled) await release(false, failureCode, failureRetryAt);
         } catch {
           /* A failed cleanup does not fabricate a completion; the lease expires. */
         }

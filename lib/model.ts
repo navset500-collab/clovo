@@ -2,6 +2,7 @@ import { z } from "zod";
 import { critiqueSchema } from "./validation";
 import { compactModelSchema } from "./model-schema";
 import { ModelError } from "./model-error";
+import { responseFailure } from "./provider-failure";
 import { createModelBudget } from "./model-budget";
 import type { Attachment, Source } from "./types";
 import { USAGE_LIMITS } from "./usage-policy";
@@ -46,11 +47,7 @@ async function generate(
       ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
       : AbortSignal.timeout(15000),
   });
-  if (!counted.ok)
-    throw new ModelError(
-      counted.status === 429 ? "provider_quota" : "input_check_unavailable",
-      counted.status,
-    );
+  if (!counted.ok) throw await responseFailure(counted, true);
   const count = (await counted.json()).totalTokens;
   if (!Number.isFinite(count) || count <= 0 || count > USAGE_LIMITS.inputTokens)
     throw new Error(
@@ -65,15 +62,7 @@ async function generate(
       ? AbortSignal.any([signal, AbortSignal.timeout(55000)])
       : AbortSignal.timeout(55000),
   });
-  if (!res.ok)
-    throw new ModelError(
-      res.status === 429
-        ? "provider_quota"
-        : res.status === 400
-          ? "provider_rejected"
-          : "provider_unavailable",
-      res.status,
-    );
+  if (!res.ok) throw await responseFailure(res);
   return res.json();
 }
 export function createModelSession(

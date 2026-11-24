@@ -30,8 +30,12 @@ const messages: Record<string, [string, string]> = {
     "Ya hay un análisis en curso en este navegador. Espera a que termine. Esta solicitud bloqueada no consumió un análisis.",
   ],
   service_provider_unavailable: [
-    "The AI service recently failed, so Clovo has paused new attempts for two minutes. Your personal completed-review allowance is unchanged. Try after the time below.",
-    "El servicio de IA falló recientemente, por lo que Clovo pausó los intentos durante dos minutos. Tu límite personal de análisis completos no ha cambiado. Vuelve después de la hora indicada.",
+    "The AI service recently failed. Clovo is waiting before sending more requests. Your personal completed-review allowance is unchanged. Check availability after the time shown; that time is not a guarantee the provider will be ready.",
+    "El servicio de IA falló recientemente. Clovo está esperando antes de enviar más solicitudes. Tu límite personal no ha cambiado. Consulta la disponibilidad después de la hora indicada; esa hora no garantiza que el proveedor esté listo.",
+  ],
+  service_provider_quota: [
+    "The shared AI provider is rate-limiting Clovo. This is not your ten-review allowance. No new AI work will start during this pause. Check again after the time below; availability still depends on the provider’s free quota.",
+    "El proveedor de IA está limitando las solicitudes de Clovo. No es tu límite de diez análisis. No se iniciará trabajo de IA durante esta pausa. Consulta después de la hora indicada; la disponibilidad depende de la cuota gratuita del proveedor.",
   ],
   review_timeout: [
     "The analysis took too long and was stopped. Your text is still in this tab. No completed review was counted. Try again later or focus the materials on one main question.",
@@ -122,8 +126,8 @@ const messages: Record<string, [string, string]> = {
     "Clovo encontró un error inesperado y no pudo terminar el informe. Este aviso no incluye la causa exacta. Tu texto sigue en esta pestaña. Consulta la disponibilidad antes de reintentar.",
   ],
   provider_quota: [
-    "The AI provider’s own quota is currently exhausted. Your brief is still here. Try later; Clovo’s allowance and the provider’s quota are separate.",
-    "Se agotó la cuota del proveedor de IA. Tu texto sigue aquí. Inténtalo más tarde; el límite de Clovo y la cuota del proveedor son independientes.",
+    "The AI provider blocked a request because its shared free quota was reached. A single review makes several AI requests, so this can happen during your first review. This attempt did not use one of your ten completed reviews. Your brief is still here; check availability after the time shown.",
+    "El proveedor de IA bloqueó una solicitud porque se alcanzó su cuota gratuita compartida. Un análisis hace varias solicitudes, así que puede ocurrir en tu primer análisis. Este intento no consumió uno de tus diez análisis completos. Tu texto sigue aquí; consulta la disponibilidad después de la hora indicada.",
   ],
   review_cancelled: [
     "Review stopped. Your brief is still here. This does not count as a completed review, but its start still uses the shared AI budget.",
@@ -146,8 +150,8 @@ const messages: Record<string, [string, string]> = {
     "El código de acceso es incorrecto.",
   ],
   request_limit: [
-    "Too many requests in a short time. Please wait before trying again.",
-    "Demasiadas solicitudes en poco tiempo. Espera antes de volver a intentarlo.",
+    "Too many API requests arrived from this network in a short time. Wait one minute, then check again. This temporary traffic limit does not mean you completed ten reviews.",
+    "Llegaron demasiadas solicitudes desde esta red en poco tiempo. Espera un minuto y vuelve a consultar. Este límite temporal no significa que hayas completado diez análisis.",
   ],
   invalid_origin: [
     "Please open Clovo directly and try again.",
@@ -161,6 +165,7 @@ const legacy: Record<string, string> = {
     "global_daily",
   "Clovo has reached its monthly allowance. New requests resume next month (UTC). Saved reports, export and the walkthrough still work.":
     "global_monthly",
+  "Too many requests. Wait one minute before trying again.": "request_limit",
   "The demo request limit has been reached. Please try later.": "request_limit",
   "Please try again later.": "request_limit",
   "Invalid request origin.": "invalid_origin",
@@ -255,6 +260,7 @@ export function errorHeading(value: string, language: "en" | "es") {
     [
       "provider_unavailable",
       "service_provider_unavailable",
+      "service_provider_quota",
       "provider_quota",
     ].includes(code)
   )

@@ -1,0 +1,9 @@
+{
+  "name": "Clovo API burst protection",
+  "active": true,
+  "description": "Free Hobby API burst guard. Separate from completed-review accounting.",
+  "conditionGroup": [{ "conditions": [{ "type": "path", "op": "pre", "value": "/api/" }] }],
+  "action": { "mitigate": { "action": "rate_limit", "rateLimit": {
+    "action": "rate_limit", "algo": "fixed_window", "keys": ["ip"], "limit": 120, "window": 60
+  } } }
+}
